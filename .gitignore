@@ -1,0 +1,30 @@
+# node
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+coverage/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+
+# turbo (나중에 쓸 수도)
+.turbo/
+
+# misc
+*.local

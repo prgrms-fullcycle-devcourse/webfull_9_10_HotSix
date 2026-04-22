@@ -1,0 +1,24 @@
+{
+  "name": "hotsix",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "pnpm biome check --write"
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.0",
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "husky": "^9.1.7",
+    "typescript": "^6.0.3"
+  }
+}
