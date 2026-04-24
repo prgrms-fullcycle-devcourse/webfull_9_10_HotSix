@@ -9,7 +9,8 @@ import {
 import type { Server, Socket } from "socket.io";
 import { SOCKET_EVENTS } from "../../../common/constants/socket-events";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
-import type { BattleService } from "../services/battle.service";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { BattleService } from "../services/battle.service";
 
 @WebSocketGateway({
   cors: {
