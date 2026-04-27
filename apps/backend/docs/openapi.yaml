@@ -1,0 +1,823 @@
+openapi: 3.1.0
+info:
+  title: Keyboard Warrior Battle Royale API
+  version: 1.0.0
+  summary: 실시간 타이핑 배틀로얄 서비스용 REST API 및 WebSocket 이벤트 규약
+  description: |
+    이 문서는 `키보드 워리어 배틀로얄` 서비스의 HTTP API와 실시간 이벤트 계약을 정의합니다.
+
+    주요 설계 원칙:
+    - 익명 사용자도 첫 방문 즉시 플레이 가능
+    - 대기 상태와 게임 진행 상태는 서버가 authoritative 하게 관리
+    - 실시간 진행도 갱신은 WebSocket, 초기 화면 렌더링과 인증은 REST API 사용
+servers:
+  - url: http://localhost:3000
+    description: local
+tags:
+  - name: Auth
+    description: 익명 사용자 생성 및 토큰 재발급
+  - name: Users
+    description: 내 프로필 및 대시보드
+  - name: Matchmaking
+    description: 대기방, 현재 게임 입장, 상태 조회
+  - name: Spectate
+    description: 관전 화면용 상태 조회
+  - name: Health
+    description: 헬스 체크
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: 서버 상태 조회
+      operationId: getHealth
+      responses:
+        '200':
+          description: 서버가 정상 동작 중입니다.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /v1/auth/anonymous:
+    post:
+      tags: [Auth]
+      summary: 익명 사용자 생성
+      description: |
+        첫 방문 사용자를 위한 엔드포인트입니다.
+        서버는 중복되지 않는 닉네임, 아바타 URL, UUID 기반 사용자를 생성하고 액세스 토큰과 리프레시 토큰을 발급합니다.
+      operationId: createAnonymousUser
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnonymousUserRequest'
+      responses:
+        '201':
+          description: 익명 사용자 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '409':
+          description: 중복 세션 또는 생성 불가 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: 토큰 재발급
+      operationId: refreshAuthSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: 토큰 재발급 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '401':
+          description: 리프레시 토큰이 유효하지 않음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/users/me:
+    get:
+      tags: [Users]
+      summary: 내 프로필 조회
+      operationId: getMyProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 현재 인증된 사용자 프로필
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/users/me/dashboard:
+    get:
+      tags: [Users]
+      summary: 내 대시보드 통계 조회
+      operationId: getMyDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 대시보드 통계
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDashboard'
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/matchmaking/status:
+    get:
+      tags: [Matchmaking]
+      summary: 현재 라운드 상태 조회
+      description: |
+        사용자가 시작하기 버튼을 누르기 전이나 대기 화면 렌더링 시 필요한 현재 라운드 스냅샷을 반환합니다.
+      operationId: getCurrentMatchStatus
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 현재 매치 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentMatchStatusResponse'
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/matchmaking/join:
+    post:
+      tags: [Matchmaking]
+      summary: 현재 라운드 참가 또는 관전 입장
+      description: |
+        현재 게임 상태에 따라 참가자 또는 관전자 역할을 서버가 결정합니다.
+
+        - `waiting` 상태: 기본적으로 참가자 등록
+        - `in_progress` 상태: 관전자 등록
+        - 이미 탈락한 사용자가 재요청한 경우: 관전자 등록
+      operationId: joinCurrentMatch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinMatchRequest'
+      responses:
+        '200':
+          description: 입장 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinMatchResponse'
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 멀티 탭 접속 또는 중복 세션 감지
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/games/current:
+    get:
+      tags: [Matchmaking]
+      summary: 현재 게임 상세 조회
+      operationId: getCurrentGame
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 현재 게임 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameDetailResponse'
+        '404':
+          description: 진행 예정 또는 진행 중인 게임이 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/games/current/scoreboard:
+    get:
+      tags: [Matchmaking]
+      summary: 현재 참가자 순위표 조회
+      operationId: getCurrentScoreboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 참가자 목록과 실시간 순위
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreboardResponse'
+  /v1/games/current/spectators:
+    get:
+      tags: [Spectate]
+      summary: 현재 관전자 목록 조회
+      operationId: getCurrentSpectators
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 관전자 목록과 인원 집계
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpectatorSnapshotResponse'
+  /v1/games/current/result:
+    get:
+      tags: [Matchmaking]
+      summary: 마지막 종료 게임 결과 조회
+      operationId: getLatestGameResult
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 가장 최근 종료된 게임 결과
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResultResponse'
+        '404':
+          description: 아직 종료된 게임이 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: keyboard-warrior-backend
+    CreateAnonymousUserRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        preferredNickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+          description: 선택 입력. 사용 가능하지 않으면 서버가 랜덤 닉네임으로 대체합니다.
+          example: 민첩한문어
+    RefreshTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: rft_9f95b3f7e2f24ca2
+    AuthTokens:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOi...
+        refreshToken:
+          type: string
+          example: rft_9f95b3f7e2f24ca2
+        expiresIn:
+          type: integer
+          description: 액세스 토큰 만료 시간(초)
+          example: 3600
+    UserProfile:
+      type: object
+      required: [id, nickname, avatarUrl, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3a4ea2b0-0f6f-4f04-a706-cde0eb13ef43
+        nickname:
+          type: string
+          example: 폭주하는타자왕
+        avatarUrl:
+          type: string
+          format: uri
+          example: https://cdn.example.com/avatars/fox-1.png
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-27T10:00:00Z'
+    AuthSessionResponse:
+      type: object
+      required: [user, tokens]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        tokens:
+          $ref: '#/components/schemas/AuthTokens'
+    UserDashboard:
+      type: object
+      required:
+        - userId
+        - nickname
+        - joinedAt
+        - totalGames
+        - wins
+        - averageRank
+        - recentRank
+        - bestRank
+      properties:
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+        totalGames:
+          type: integer
+          minimum: 0
+          example: 42
+        wins:
+          type: integer
+          minimum: 0
+          example: 8
+        averageRank:
+          type: number
+          format: float
+          example: 3.4
+        recentRank:
+          type: integer
+          minimum: 1
+          example: 2
+        bestRank:
+          type: integer
+          minimum: 1
+          example: 1
+        averageWpm:
+          type: integer
+          minimum: 0
+          example: 312
+        averageAccuracy:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 97
+    MatchPhase:
+      type: string
+      enum: [waiting, in_progress, finished]
+      example: waiting
+    ParticipantRole:
+      type: string
+      enum: [player, spectator]
+      example: player
+    ParticipantStatus:
+      type: string
+      enum: [waiting, alive, eliminated, finished, spectating, disconnected]
+      example: alive
+    MatchSummary:
+      type: object
+      required:
+        - gameId
+        - phase
+        - minPlayers
+        - waitingPlayerCount
+        - playerCount
+        - spectatorCount
+        - eliminatedCount
+        - startsAt
+        - serverTime
+      properties:
+        gameId:
+          type: integer
+          example: 104
+        phase:
+          $ref: '#/components/schemas/MatchPhase'
+        minPlayers:
+          type: integer
+          example: 4
+        waitingPlayerCount:
+          type: integer
+          example: 6
+        playerCount:
+          type: integer
+          example: 6
+        spectatorCount:
+          type: integer
+          example: 3
+        eliminatedCount:
+          type: integer
+          example: 1
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        serverTime:
+          type: string
+          format: date-time
+    WaitingRoomInfo:
+      type: object
+      required: [title, ruleSummary, countdownSeconds]
+      properties:
+        title:
+          type: string
+          example: 다음 라운드 대기실
+        ruleSummary:
+          type: array
+          items:
+            type: string
+          example:
+            - 오타가 나는 즉시 탈락합니다.
+            - 가장 먼저 장문을 완성하면 우승합니다.
+            - 생존자 1명만 남아도 즉시 종료됩니다.
+        countdownSeconds:
+          type: integer
+          minimum: 0
+          example: 18
+    CurrentMatchStatusResponse:
+      type: object
+      required: [match, waitingRoom, me]
+      properties:
+        match:
+          $ref: '#/components/schemas/MatchSummary'
+        waitingRoom:
+          $ref: '#/components/schemas/WaitingRoomInfo'
+        me:
+          $ref: '#/components/schemas/MyMatchPresence'
+    MyMatchPresence:
+      type: object
+      required: [userId, nickname, role, status, hasActiveSession]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        status:
+          $ref: '#/components/schemas/ParticipantStatus'
+        hasActiveSession:
+          type: boolean
+          example: true
+    JoinMatchRequest:
+      type: object
+      additionalProperties: false
+      required: [clientSessionId]
+      properties:
+        clientSessionId:
+          type: string
+          description: 브라우저 탭 단위 식별자. 멀티 탭 방지용
+          example: tab_8u31v8b3
+        preferredRole:
+          type: string
+          enum: [player, spectator]
+          description: waiting 상태에서만 힌트로 사용됩니다.
+          example: player
+    JoinMatchResponse:
+      type: object
+      required: [gameId, assignedRole, assignedStatus, socketNamespace, socketAuthToken]
+      properties:
+        gameId:
+          type: integer
+          example: 104
+        assignedRole:
+          $ref: '#/components/schemas/ParticipantRole'
+        assignedStatus:
+          $ref: '#/components/schemas/ParticipantStatus'
+        socketNamespace:
+          type: string
+          example: /battle
+        socketAuthToken:
+          type: string
+          example: ws_tk_2ef8b9d6c
+        reason:
+          type: string
+          nullable: true
+          example: game_already_in_progress
+    GameDetailResponse:
+      type: object
+      required: [game, prompt, participants]
+      properties:
+        game:
+          $ref: '#/components/schemas/GameSummary'
+        prompt:
+          $ref: '#/components/schemas/GamePrompt'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantSnapshot'
+    GameSummary:
+      type: object
+      required: [id, phase, minPlayers, totalPlayers, spectatorCount]
+      properties:
+        id:
+          type: integer
+          example: 104
+        phase:
+          $ref: '#/components/schemas/MatchPhase'
+        minPlayers:
+          type: integer
+          example: 4
+        totalPlayers:
+          type: integer
+          example: 6
+        spectatorCount:
+          type: integer
+          example: 3
+        winnerUserId:
+          type: string
+          format: uuid
+          nullable: true
+    GamePrompt:
+      type: object
+      required: [id, text, totalLength]
+      properties:
+        id:
+          type: integer
+          example: 7
+        text:
+          type: string
+          example: 빠른 갈색 여우가 게으른 개를 뛰어넘는다.
+        totalLength:
+          type: integer
+          example: 27
+    ParticipantSnapshot:
+      type: object
+      required:
+        - userId
+        - nickname
+        - avatarUrl
+        - role
+        - status
+        - progressPercent
+        - typedLength
+        - rank
+      properties:
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        status:
+          $ref: '#/components/schemas/ParticipantStatus'
+        progressPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 74
+        typedLength:
+          type: integer
+          minimum: 0
+          example: 20
+        rank:
+          type: integer
+          minimum: 1
+          example: 2
+        wpm:
+          type: integer
+          minimum: 0
+          example: 328
+        accuracy:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 98
+    ScoreboardResponse:
+      type: object
+      required: [gameId, phase, participants]
+      properties:
+        gameId:
+          type: integer
+          example: 104
+        phase:
+          $ref: '#/components/schemas/MatchPhase'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantSnapshot'
+    SpectatorSnapshotResponse:
+      type: object
+      required: [gameId, spectatorCount, playerCount, eliminatedCount, spectators]
+      properties:
+        gameId:
+          type: integer
+          example: 104
+        spectatorCount:
+          type: integer
+          example: 3
+        playerCount:
+          type: integer
+          example: 6
+        eliminatedCount:
+          type: integer
+          example: 1
+        spectators:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPreview'
+    UserPreview:
+      type: object
+      required: [userId, nickname, avatarUrl]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+    GameResultResponse:
+      type: object
+      required: [gameId, finishedAt, winner, rankings]
+      properties:
+        gameId:
+          type: integer
+          example: 104
+        finishedAt:
+          type: string
+          format: date-time
+        winner:
+          $ref: '#/components/schemas/UserPreview'
+        rankings:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameRanking'
+    GameRanking:
+      type: object
+      required: [rank, userId, nickname, finalStatus]
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+          example: 1
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        finalStatus:
+          type: string
+          enum: [winner, finished, eliminated, disconnected]
+          example: winner
+        typedLength:
+          type: integer
+          minimum: 0
+          example: 27
+        accuracy:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 100
+        wpm:
+          type: integer
+          minimum: 0
+          example: 341
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: MULTI_TAB_DETECTED
+        message:
+          type: string
+          example: 동일한 사용자로 여러 탭에서 동시에 접속할 수 없습니다.
+        details:
+          type: object
+          additionalProperties: true
+x-websocket:
+  namespace: /battle
+  transport: socket.io
+  authentication:
+    description: REST `/v1/matchmaking/join` 응답의 `socketAuthToken`을 소켓 핸드셰이크 auth 값으로 전달합니다.
+  events:
+    clientToServer:
+      - event: battle:join
+        payload:
+          type: object
+          required: [gameId]
+          properties:
+            gameId:
+              type: integer
+              example: 104
+        ack:
+          type: object
+          properties:
+            ok:
+              type: boolean
+              example: true
+      - event: battle:ready
+        payload:
+          type: object
+          required: [gameId]
+          properties:
+            gameId:
+              type: integer
+              example: 104
+      - event: battle:input
+        description: 사용자가 새로 입력한 전체 문자열 또는 마지막 검증 지점까지의 문자열
+        payload:
+          type: object
+          required: [gameId, typedText]
+          properties:
+            gameId:
+              type: integer
+              example: 104
+            typedText:
+              type: string
+              example: 빠른 갈색 여우가
+            cursorPosition:
+              type: integer
+              minimum: 0
+              example: 8
+      - event: battle:heartbeat
+        payload:
+          type: object
+          required: [gameId, clientSessionId]
+          properties:
+            gameId:
+              type: integer
+            clientSessionId:
+              type: string
+              example: tab_8u31v8b3
+    serverToClient:
+      - event: battle:welcome
+        payload:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Keyboard Warrior Battle Royale server connected
+      - event: battle:state
+        description: 현재 게임 전체 스냅샷
+        payload:
+          $ref: '#/components/schemas/GameDetailResponse'
+      - event: battle:countdown
+        payload:
+          type: object
+          required: [gameId, countdownSeconds]
+          properties:
+            gameId:
+              type: integer
+            countdownSeconds:
+              type: integer
+              example: 10
+      - event: battle:progress
+        payload:
+          type: object
+          required: [gameId, participant]
+          properties:
+            gameId:
+              type: integer
+            participant:
+              $ref: '#/components/schemas/ParticipantSnapshot'
+      - event: battle:eliminated
+        payload:
+          type: object
+          required: [gameId, userId, reason]
+          properties:
+            gameId:
+              type: integer
+            userId:
+              type: string
+              format: uuid
+            reason:
+              type: string
+              enum: [typo, inactivity, disconnected, multi_tab]
+              example: typo
+      - event: battle:finished
+        payload:
+          $ref: '#/components/schemas/GameResultResponse'
