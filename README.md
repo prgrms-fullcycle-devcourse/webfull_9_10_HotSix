@@ -95,12 +95,13 @@ pnpm dev
 
 ### 3. 접속 주소
 
-- Frontend: `http://locahost.5173`
+- Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
 - Swagger UI: `http://localhost:3000/docs`
 - OpenAPI YAML: `http://localhost:3000/docs/openapi.yaml`
 
 - `pnpm dev` 실행이 환경에 따라 불안정하면 프론트와 백엔드를 각각 따로 실행해도 됩니다.
+
 ```bash
 pnpm --filter @keyboard-warrior/frontend dev
 pnpm --filter @keyboard-warrior/backend dev
@@ -163,6 +164,7 @@ apps/backend
 ## 환경 변수
 
 예시 파일:
+
 - [apps/frontend/.env.example](/Users/a2485/Documents/webfull_9_10_HotSix/apps/frontend/.env.example:1)
 - [apps/backend/.env.example](/Users/a2485/Documents/webfull_9_10_HotSix/apps/backend/.env.example:1)
 
