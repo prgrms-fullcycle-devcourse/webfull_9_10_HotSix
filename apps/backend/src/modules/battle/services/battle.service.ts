@@ -26,4 +26,10 @@ export class BattleService {
 
     return gameState;
   }
+
+  async getCurrentGameState() {
+    const gameId = (await this.battleStateRepository.getCurrentGameId()) as string;
+    const gameState = await this.battleStateRepository.getCurrentGameState(gameId);
+    return gameState;
+  }
 }
