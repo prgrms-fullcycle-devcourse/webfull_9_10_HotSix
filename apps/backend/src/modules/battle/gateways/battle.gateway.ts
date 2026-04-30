@@ -8,9 +8,9 @@ import {
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 import { SOCKET_EVENTS } from "../../../common/constants/socket-events";
-import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { BattleService } from "../services/battle.service";
+import type { BattleReadyDto } from "../dto/battle-ready.dto";
+import type { BattleService } from "../services/battle.service";
 
 @WebSocketGateway({
   cors: {
@@ -23,19 +23,20 @@ export class BattleGateway implements OnGatewayConnection {
   @WebSocketServer()
   server!: Server;
 
-  handleConnection(client: Socket) {
-    client.emit(SOCKET_EVENTS.BATTLE_WELCOME, this.battleService.getWelcomeMessage());
+  async handleConnection(client: Socket) {
+    const connectionState = await this.battleService.getConnectionState();
+
+    client.emit(SOCKET_EVENTS.BATTLE_WELCOME, {
+      ...this.battleService.getWelcomeMessage(),
+      game: connectionState,
+    });
   }
 
   @SubscribeMessage(SOCKET_EVENTS.BATTLE_READY)
   handleReady(@MessageBody() payload: BattleReadyDto, @ConnectedSocket() client: Socket) {
     const confirmed = this.battleService.createReadyConfirmation(payload);
 
+    client.emit(SOCKET_EVENTS.BATTLE_READY_CONFIRMED, confirmed);
     client.broadcast.emit(SOCKET_EVENTS.BATTLE_PLAYER_READY, payload);
-
-    return {
-      event: SOCKET_EVENTS.BATTLE_READY_CONFIRMED,
-      data: confirmed,
-    };
   }
 }
