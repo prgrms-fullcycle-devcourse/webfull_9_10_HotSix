@@ -1,7 +1,9 @@
+// biome-ignore assist/source/organizeImports: reflect-metadata must be first import
+import "reflect-metadata";
+
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
-import "reflect-metadata";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
