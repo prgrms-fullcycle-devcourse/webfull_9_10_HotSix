@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { UsersService } from "../users/users.service";
 
 type UserProfile = {
   id: string;
@@ -12,7 +14,7 @@ type UserProfile = {
 export class GameStateService {
   private readonly users = new Map<string, UserProfile>();
 
-  constructor() {
+  constructor(private usersService: UsersService) {
     const seededUsers: UserProfile[] = [
       this.buildUser("demo-user-1", "폭주하는타자왕", "https://cdn.example.com/avatars/fox-1.png"),
       this.buildUser(
@@ -46,16 +48,8 @@ export class GameStateService {
     return user;
   }
 
-  getUserById(userId: string) {
-    const fallbackUser = this.users.get("demo-user-1");
-
-    return (
-      this.users.get(userId) ?? fallbackUser ?? this.buildUser("demo-user-1", "폭주하는타자왕", "")
-    );
-  }
-
-  getDashboard(userId: string) {
-    const user = this.getUserById(userId);
+  async getDashboard(userId: string) {
+    const user = await this.usersService.getMyProfile(userId);
 
     return {
       userId: user.id,
@@ -71,8 +65,9 @@ export class GameStateService {
     };
   }
 
-  getCurrentMatchStatus(userId: string) {
-    const user = this.getUserById(userId);
+  async getCurrentMatchStatus(userId: string) {
+    const user = await this.usersService.getMyDashboard(userId);
+    const dashboard = await this.usersService.getMyDashboard(userId);
 
     return {
       match: {
@@ -98,7 +93,7 @@ export class GameStateService {
         countdownSeconds: 18,
       },
       me: {
-        userId: user.id,
+        userId: user.userId,
         nickname: user.nickname,
         role: "player",
         status: "waiting",
@@ -107,8 +102,8 @@ export class GameStateService {
     };
   }
 
-  joinCurrentMatch(userId: string, clientSessionId: string, preferredRole?: string) {
-    const user = this.getUserById(userId);
+  async joinCurrentMatch(userId: string, clientSessionId: string, preferredRole?: string) {
+    const user = await this.usersService.getMyDashboard(userId);
     const assignedRole = preferredRole === "spectator" ? "spectator" : "player";
     const assignedStatus = assignedRole === "spectator" ? "spectating" : "waiting";
 
@@ -150,16 +145,16 @@ export class GameStateService {
     };
   }
 
-  getCurrentSpectators() {
+  async getCurrentSpectators() {
     return {
       gameId: 104,
       spectatorCount: 3,
       playerCount: 6,
       eliminatedCount: 1,
       spectators: [
-        this.toUserPreview(this.getUserById("demo-user-3")),
-        this.toUserPreview(this.getUserById("demo-user-4")),
-        this.toUserPreview(this.getUserById("demo-user-5")),
+        //this.toUserPreview(this.getUserById("demo-user-3")),
+        //this.toUserPreview(this.getUserById("demo-user-4")),
+        //this.toUserPreview(this.getUserById("demo-user-5")),
       ],
     };
   }
@@ -168,7 +163,7 @@ export class GameStateService {
     return {
       gameId: 103,
       finishedAt: "2026-04-27T09:58:05Z",
-      winner: this.toUserPreview(this.getUserById("demo-user-1")),
+      //winner: this.toUserPreview(this.getUserById("demo-user-1")),
       rankings: [
         {
           rank: 1,

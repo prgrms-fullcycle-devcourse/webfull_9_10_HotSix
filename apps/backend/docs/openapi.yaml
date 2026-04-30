@@ -148,6 +148,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Users]
+      summary: 내 프로필 수정
+      operationId: updateMyProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: 프로필 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: 수정할 항목이 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Users]
+      summary: 내 계정 삭제
+      operationId: deleteMyProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: 계정 삭제 성공
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 존재하지 않는 유저
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /v1/users/me/dashboard:
     get:
       tags: [Users]
@@ -164,6 +216,90 @@ paths:
                 $ref: '#/components/schemas/UserDashboard'
         '401':
           description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/users/{userId}:
+    get:
+      tags: [Users]
+      summary: 특정 유저 프로필 조회
+      operationId: getUserById
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 유저 프로필
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: 존재하지 않는 유저
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/users/{userId}/dashboard:
+    get:
+      tags: [Users]
+      summary: 특정 유저 대시보드 조회
+      operationId: getUserDashboard
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 유저 대시보드
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDashboard'
+        '404':
+          description: 존재하지 않는 유저
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/lobby/join:
+    post:
+      tags: [Match]
+      summary: 대기방 입장
+      operationId: joinLobby
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinLobbyRequest'
+      responses:
+        '201':
+          description: 대기방 입장 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinLobbyResponse'
+        '401':
+          description: 인증 필요
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 존재하지 않는 유저
           content:
             application/json:
               schema:
@@ -422,6 +558,39 @@ components:
           minimum: 0
           maximum: 100
           example: 97
+    UpdateUserProfileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        nickname:
+          type: string
+          example: 새로운닉네임
+        avatarUrl:
+          type: string
+          format: uri
+          example: https://cdn.example.com/avatars/fox-1.png
+
+    JoinLobbyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        nickname:
+          type: string
+          example: 폭주하는타자왕
+
+    JoinLobbyResponse:
+      type: object
+      required: [userId, socketNamespace, socketAuthToken]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        socketNamespace:
+          type: string
+          example: /battle
+        socketAuthToken:
+          type: string
+          example: ws_tk_2ef8b9d6c
     MatchPhase:
       type: string
       enum: [waiting, in_progress, finished]
