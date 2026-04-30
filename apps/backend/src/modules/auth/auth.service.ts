@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import type { JwtService } from "@nestjs/jwt";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { JwtService } from "@nestjs/jwt";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersService } from "../users/users.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.

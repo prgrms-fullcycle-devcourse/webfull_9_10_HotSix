@@ -6,6 +6,7 @@ import { DocsModule } from "./modules/docs/docs.module";
 import { GameStateModule } from "./modules/game-state/game-state.module";
 import { GamesModule } from "./modules/games/games.module";
 import { HealthModule } from "./modules/health/health.module";
+import { LobbyModule } from "./modules/lobby/lobby.module";
 import { MatchmakingModule } from "./modules/matchmaking/matchmaking.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -24,6 +25,7 @@ import { UsersModule } from "./modules/users/users.module";
     HealthModule,
     BattleModule,
     StorageModule,
+    LobbyModule,
   ],
 })
 export class AppModule {}
