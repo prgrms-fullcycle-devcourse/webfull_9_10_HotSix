@@ -67,7 +67,6 @@ export class GameStateService {
 
   async getCurrentMatchStatus(userId: string) {
     const user = await this.usersService.getMyDashboard(userId);
-    const dashboard = await this.usersService.getMyDashboard(userId);
 
     return {
       match: {
@@ -226,14 +225,6 @@ export class GameStateService {
         accuracy: 0,
       },
     ];
-  }
-
-  private toUserPreview(user: UserProfile) {
-    return {
-      userId: user.id,
-      nickname: user.nickname,
-      avatarUrl: user.avatarUrl,
-    };
   }
 
   private buildUser(id: string, nickname: string, avatarUrl: string): UserProfile {
