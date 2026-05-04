@@ -40,6 +40,16 @@ Table refresh_tokens  {
   created_at now
 }
 
+Table prompts {
+  id integer [primary key]
+  slug varchar [unique]
+  title varchar
+  content text
+  content_length integer
+  is_active boolean
+  created_at now
+}
+
 Table games {
   id integer [primary key]
   status boolean
@@ -47,6 +57,7 @@ Table games {
   ended_at varchar
   total_players varchar
   winner_user_id text
+  prompt_id integer [ref: > prompts.id]
 }
 
 Table participants {
@@ -80,6 +91,7 @@ erDiagram
     USERS ||--|| USER_STATS : has
     USERS ||--|| REFRESH_TOKENS : owns
     USERS ||--o| PARTICIPANTS : plays_as
+    PROMPTS ||--o| GAMES : assigned_to
     GAMES ||--o| PARTICIPANTS : has
     CHATS ||--o| PARTICIPANTS : maps_to
 
@@ -117,6 +129,16 @@ erDiagram
       now created_at
     }
 
+    PROMPTS {
+      int id PK
+      varchar slug UK
+      varchar title
+      text content
+      int content_length
+      boolean is_active
+      now created_at
+    }
+
     GAMES {
       int id PK
       boolean status
@@ -124,6 +146,7 @@ erDiagram
       varchar ended_at
       varchar total_players
       text winner_user_id
+      int prompt_id FK
     }
 
     PARTICIPANTS {
@@ -155,6 +178,7 @@ erDiagram
 - `users`: 익명 사용자 기본 프로필
 - `user_stats`: 대시보드 집계 데이터
 - `refresh_tokens`: 재로그인 및 세션 연장용 토큰 저장
+- `prompts`: 타이핑 게임에서 사용할 한글 원문 저장
 - `games`: 각 배틀 라운드 메타데이터
 - `participants`: 사용자별 게임 결과 기록
 - `chats`: 현재 스키마상 참가 기록과 연결된 별도 세션 또는 룸 개념으로 해석 가능
