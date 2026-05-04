@@ -1,3 +1,5 @@
+import type { PromptSnapshot } from "./prompt-snapshot";
+
 export type ConnectionRole = "player" | "spectator";
 
 export type GamePhase = "waiting" | "in_progress" | "finished";
@@ -11,6 +13,7 @@ export type CurrentGameState = {
   hasTenSecondNoticeSent: boolean;
   minPlayers: number;
   playerCount: number;
+  prompt: PromptSnapshot;
   spectatorCount: number;
   updatedAt: string;
   waitingEndsAt: null | string;

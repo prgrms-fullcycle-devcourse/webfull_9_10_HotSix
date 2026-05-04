@@ -19,4 +19,8 @@ export class SupabaseService {
 
     return this.client;
   }
+
+  get optionalInstance() {
+    return this.client;
+  }
 }
