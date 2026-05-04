@@ -3,13 +3,18 @@ import { v7 as uuidv7 } from "uuid";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { PromptRepository } from "../repositories/prompt.repository";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
 const WAITING_DURATION_SECONDS = 15 * 60;
 
 @Injectable()
 export class BattleService {
-  constructor(private readonly battleStateRepository: BattleStateRepository) {}
+  constructor(
+    private readonly battleStateRepository: BattleStateRepository,
+    private readonly promptRepository: PromptRepository,
+  ) {}
 
   async ensureCurrentGameState() {
     const currentGameState = await this.battleStateRepository.getCurrentGameState();
@@ -18,7 +23,7 @@ export class BattleService {
       return currentGameState;
     }
 
-    const waitingGameState = this.createWaitingGameState(new Date());
+    const waitingGameState = await this.createWaitingGameState(new Date());
     await this.battleStateRepository.saveCurrentGameState(waitingGameState);
 
     return waitingGameState;
@@ -58,6 +63,7 @@ export class BattleService {
   buildStatePayload(currentGameState: CurrentGameState) {
     return {
       gameId: currentGameState.gameId,
+      prompt: currentGameState.prompt,
       phase: currentGameState.phase,
       minPlayers: currentGameState.minPlayers,
       playerCount: currentGameState.playerCount,
@@ -72,6 +78,11 @@ export class BattleService {
     return {
       gameId: currentGameState.gameId,
       phase: currentGameState.phase,
+      prompt: {
+        contentLength: currentGameState.prompt.contentLength,
+        id: currentGameState.prompt.id,
+        title: currentGameState.prompt.title,
+      },
       remainingSeconds: this.getWaitingRemainingSeconds(currentGameState),
       waitingEndsAt: currentGameState.waitingEndsAt,
       minPlayers: currentGameState.minPlayers,
@@ -168,7 +179,7 @@ export class BattleService {
       gameEndedAt: finishedAt,
       updatedAt: finishedAt,
     };
-    const nextWaitingGameState = this.createWaitingGameState(new Date());
+    const nextWaitingGameState = await this.createWaitingGameState(new Date());
 
     await this.battleStateRepository.saveCurrentGameState(nextWaitingGameState);
 
@@ -178,8 +189,9 @@ export class BattleService {
     };
   }
 
-  private createWaitingGameState(now: Date) {
+  private async createWaitingGameState(now: Date) {
     const gameId = uuidv7();
+    const prompt = await this.promptRepository.getRandomPrompt();
     const waitingStartedAt = now.toISOString();
     const waitingEndsAt = new Date(now.getTime() + WAITING_DURATION_SECONDS * 1000).toISOString();
 
@@ -192,6 +204,7 @@ export class BattleService {
       phase: "waiting" as const,
       playerCount: 0,
       minPlayers: 4,
+      prompt,
       spectatorCount: 0,
       updatedAt: waitingStartedAt,
       waitingEndsAt,
