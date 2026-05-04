@@ -59,6 +59,7 @@ pnpm --filter @keyboard-warrior/backend build
 - OpenAPI YAML: `http://localhost:3000/docs/openapi.yaml`
 - 요구사항 명세: `http://localhost:3000/docs/requirements`
 - ERD 문서: `http://localhost:3000/docs/erd`
+- Socket.IO 명세: `http://localhost:3000/docs/socket-io`
 
 ## 환경 변수
 
