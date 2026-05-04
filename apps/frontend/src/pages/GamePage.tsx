@@ -1,11 +1,16 @@
-import Game from "@/components/GamePage/Game";
-import SideBar from "@/components/GamePage/SideBar";
+import Sidebar from "@/components/game/Sidebar/SideBar";
+import TypingGame from "@/components/game/TypingGame/TypingGame";
 
 const GamePage = () => {
   return (
     <div className="flex w-full h-dvh overflow-hidden">
-      <SideBar />
-      <Game />
+      <div className="w-64 shrink-0">
+        <Sidebar />
+      </div>
+
+      <div className="flex-1 flex justify-center items-center bg-gray-100">
+        <TypingGame />
+      </div>
     </div>
   );
 };
