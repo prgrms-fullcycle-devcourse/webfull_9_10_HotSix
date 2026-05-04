@@ -51,6 +51,10 @@ export class BattleService {
     return Math.max(0, Math.ceil(remainingMilliseconds / 1000));
   }
 
+  canStartCurrentGame(currentGameState: CurrentGameState) {
+    return currentGameState.playerCount >= currentGameState.minPlayers;
+  }
+
   buildStatePayload(currentGameState: CurrentGameState) {
     return {
       gameId: currentGameState.gameId,
@@ -131,6 +135,23 @@ export class BattleService {
     await this.battleStateRepository.saveCurrentGameState(startedGameState);
 
     return startedGameState;
+  }
+
+  async restartWaitingCountdown(currentGameState: CurrentGameState) {
+    const now = new Date();
+    const waitingStartedAt = now.toISOString();
+    const waitingEndsAt = new Date(now.getTime() + WAITING_DURATION_SECONDS * 1000).toISOString();
+    const restartedWaitingGameState = {
+      ...currentGameState,
+      hasTenSecondNoticeSent: false,
+      updatedAt: waitingStartedAt,
+      waitingEndsAt,
+      waitingStartedAt,
+    };
+
+    await this.battleStateRepository.saveCurrentGameState(restartedWaitingGameState);
+
+    return restartedWaitingGameState;
   }
 
   async finishCurrentGame() {
