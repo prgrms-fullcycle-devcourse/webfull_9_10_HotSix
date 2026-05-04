@@ -245,7 +245,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
   /v1/users/{userId}/dashboard:
     get:
       tags: [Users]
@@ -271,27 +270,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/lobby/join:
+  /v1/match/join:
     post:
       tags: [Match]
       summary: 대기방 입장
-      operationId: joinLobby
+      operationId: joinMatch
       security:
         - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JoinLobbyRequest'
       responses:
         '201':
           description: 대기방 입장 성공
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JoinLobbyResponse'
+                $ref: '#/components/schemas/JoinmatchResponse'
         '401':
           description: 인증 필요
           content:
@@ -304,74 +296,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /v1/match/status:
+  /v1/match/users:
     get:
       tags: [Match]
-      summary: 현재 매칭 및 대기 상태 조회
-      description: |
-        사용자가 시작하기 버튼을 누르기 전이나 대기 화면 렌더링 시 필요한 매칭 스냅샷을 반환합니다.
-        이 응답은 `지금 참가 가능한지`, `다음 시작까지 얼마나 남았는지` 같은 대기방 진입 판단에 초점을 둡니다.
-      operationId: getCurrentMatchStatus
-      security:
-        - bearerAuth: []
+      summary: 현재 대기방 유저 목록 조회
+      operationId: getMatchUsers
       responses:
         '200':
-          description: 현재 매치 상태
+          description: 대기방 유저 목록
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CurrentMatchStatusResponse'
-        '401':
-          description: 인증 필요
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /v1/match/join:
-    post:
-      tags: [Match]
-      summary: 현재 라운드 참가 또는 관전 입장 처리
-      description: |
-        현재 게임 상태에 따라 참가자 또는 관전자 역할을 서버가 결정합니다.
-
-        - `waiting` 상태: 기본적으로 참가자 등록
-        - `in_progress` 상태: 관전자 등록
-        - 이미 탈락한 사용자가 재요청한 경우: 관전자 등록
-      operationId: joinCurrentMatch
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JoinMatchRequest'
-      responses:
-        '200':
-          description: 입장 성공
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JoinMatchResponse'
-        '401':
-          description: 인증 필요
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: 멀티 탭 접속 또는 중복 세션 감지
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /v1/match:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MatchPlayer'
+  /v1/games/current:
     get:
       tags: [Match]
-      summary: 현재 단일 게임 세션 상세 조회
-      description: |
-        실제 게임 화면 렌더링에 필요한 현재 단일 게임 세션의 상세 상태를 반환합니다.
-        참가자 진행도, 제시 문장, 게임 메타데이터를 포함합니다.
+      summary: 현재 진행 중인 게임 상세 조회
       operationId: getCurrentGame
       security:
         - bearerAuth: []
@@ -383,16 +325,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/GameDetailResponse'
         '404':
-          description: 진행 예정 또는 진행 중인 게임이 없음
+          description: 진행 중인 게임이 없음
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /v1/match/scoreboard:
+  /v1/games/current/scoreboard:
     get:
       tags: [Match]
       summary: 현재 참가자 순위표 조회
-      description: 진행 중인 게임의 참가자 순위, 진행률, 정확도 등 플레이 상태를 조회합니다.
       operationId: getCurrentScoreboard
       security:
         - bearerAuth: []
@@ -402,12 +343,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScoreboardResponse'
-  /v1/match/spectators:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MatchPlayer'
+  /v1/games/current/spectators:
     get:
       tags: [Match]
       summary: 현재 관전자 목록 조회
-      description: 진행 중인 게임을 보고 있는 관전자 목록과 플레이어/탈락자 집계를 조회합니다.
       operationId: getCurrentSpectators
       security:
         - bearerAuth: []
@@ -417,12 +359,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SpectatorSnapshotResponse'
-  /v1/match/result:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPreview'
+  /v1/games/current/result:
     get:
       tags: [Match]
       summary: 마지막 종료 게임 결과 조회
-      description: 가장 최근에 종료된 라운드의 우승자와 최종 순위를 조회합니다.
       operationId: getLatestGameResult
       security:
         - bearerAuth: []
@@ -569,28 +512,61 @@ components:
           type: string
           format: uri
           example: https://cdn.example.com/avatars/fox-1.png
-
-    JoinLobbyRequest:
+    JoinmatchResponse:
       type: object
-      additionalProperties: false
-      properties:
-        nickname:
-          type: string
-          example: 폭주하는타자왕
-
-    JoinLobbyResponse:
-      type: object
-      required: [userId, socketNamespace, socketAuthToken]
+      required: [userId, role, status, socketNamespace, socketAuthToken]
       properties:
         userId:
           type: string
           format: uuid
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        status:
+          $ref: '#/components/schemas/ParticipantStatus'
         socketNamespace:
           type: string
           example: /battle
         socketAuthToken:
           type: string
           example: ws_tk_2ef8b9d6c
+    MatchPlayer:
+      type: object
+      required: [userId, nickname, avatarUrl, status, role, joinedAt, progressPercent, rank, wpm, life, accuracy, isEliminated]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        status:
+          $ref: '#/components/schemas/ParticipantStatus'
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        joinedAt:
+          type: string
+          format: date-time
+        progressPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        rank:
+          type: integer
+          minimum: 0
+        wpm:
+          type: integer
+          minimum: 0
+        life:
+          type: integer
+          minimum: 0
+        accuracy:
+          type: integer
+          minimum: 0
+          maximum: 100
+        isEliminated:
+          type: boolean
     MatchPhase:
       type: string
       enum: [waiting, in_progress, finished]
@@ -603,138 +579,6 @@ components:
       type: string
       enum: [waiting, alive, eliminated, finished, spectating, disconnected]
       example: alive
-    MatchSummary:
-      type: object
-      description: 매칭 및 대기방 진입 판단에 필요한 현재 라운드 요약 정보
-      required:
-        - gameId
-        - phase
-        - minPlayers
-        - waitingPlayerCount
-        - playerCount
-        - spectatorCount
-        - eliminatedCount
-        - startsAt
-        - serverTime
-      properties:
-        gameId:
-          type: integer
-          example: 104
-        phase:
-          $ref: '#/components/schemas/MatchPhase'
-        minPlayers:
-          type: integer
-          example: 4
-        waitingPlayerCount:
-          type: integer
-          example: 6
-        playerCount:
-          type: integer
-          example: 6
-        spectatorCount:
-          type: integer
-          example: 3
-        eliminatedCount:
-          type: integer
-          example: 1
-        startsAt:
-          type: string
-          format: date-time
-          nullable: true
-        startedAt:
-          type: string
-          format: date-time
-          nullable: true
-        endsAt:
-          type: string
-          format: date-time
-          nullable: true
-        serverTime:
-          type: string
-          format: date-time
-    WaitingRoomInfo:
-      type: object
-      required: [title, ruleSummary, countdownSeconds]
-      properties:
-        title:
-          type: string
-          example: 다음 라운드 대기실
-        ruleSummary:
-          type: array
-          items:
-            type: string
-          example:
-            - 오타가 나는 즉시 탈락합니다.
-            - 가장 먼저 장문을 완성하면 우승합니다.
-            - 생존자 1명만 남아도 즉시 종료됩니다.
-        countdownSeconds:
-          type: integer
-          minimum: 0
-          example: 18
-    CurrentMatchStatusResponse:
-      type: object
-      description: |
-        매칭 및 대기방 진입 화면용 응답입니다.
-        실제 게임 중 참가자별 상세 진행률은 `/v1/match` 및 하위 엔드포인트에서 조회합니다.
-      required: [match, waitingRoom, me]
-      properties:
-        match:
-          $ref: '#/components/schemas/MatchSummary'
-        waitingRoom:
-          $ref: '#/components/schemas/WaitingRoomInfo'
-        me:
-          $ref: '#/components/schemas/MyMatchPresence'
-    MyMatchPresence:
-      type: object
-      required: [userId, nickname, role, status, hasActiveSession]
-      properties:
-        userId:
-          type: string
-          format: uuid
-        nickname:
-          type: string
-        role:
-          $ref: '#/components/schemas/ParticipantRole'
-        status:
-          $ref: '#/components/schemas/ParticipantStatus'
-        hasActiveSession:
-          type: boolean
-          example: true
-    JoinMatchRequest:
-      type: object
-      additionalProperties: false
-      required: [clientSessionId]
-      properties:
-        clientSessionId:
-          type: string
-          description: 브라우저 탭 단위 식별자. 멀티 탭 방지용
-          example: tab_8u31v8b3
-        preferredRole:
-          type: string
-          enum: [player, spectator]
-          description: waiting 상태에서만 힌트로 사용됩니다.
-          example: player
-    JoinMatchResponse:
-      type: object
-      required: [gameId, assignedRole, assignedStatus, socketNamespace, socketAuthToken]
-      properties:
-        gameId:
-          type: integer
-          example: 104
-        assignedRole:
-          $ref: '#/components/schemas/ParticipantRole'
-        assignedStatus:
-          $ref: '#/components/schemas/ParticipantStatus'
-        socketNamespace:
-          type: string
-          example: /battle
-        socketAuthToken:
-          type: string
-          example: ws_tk_2ef8b9d6c
-        reason:
-          type: string
-          nullable: true
-          example: game_already_in_progress
     GameDetailResponse:
       type: object
       description: 게임 플레이 화면용 상세 응답
@@ -833,38 +677,14 @@ components:
     ScoreboardResponse:
       type: object
       description: 순위표 및 참가자 진행 상태 응답
-      required: [gameId, phase, participants]
+      required: [players]
       properties:
-        gameId:
-          type: integer
-          example: 104
-        phase:
-          $ref: '#/components/schemas/MatchPhase'
-        participants:
+        players:
           type: array
           items:
-            $ref: '#/components/schemas/ParticipantSnapshot'
+            $ref: '#/components/schemas/MatchPlayer'
     SpectatorSnapshotResponse:
       type: object
-      description: 관전 화면용 관전자 및 인원 집계 응답
-      required: [gameId, spectatorCount, playerCount, eliminatedCount, spectators]
-      properties:
-        gameId:
-          type: integer
-          example: 104
-        spectatorCount:
-          type: integer
-          example: 3
-        playerCount:
-          type: integer
-          example: 6
-        eliminatedCount:
-          type: integer
-          example: 1
-        spectators:
-          type: array
-          items:
-            $ref: '#/components/schemas/UserPreview'
     UserPreview:
       type: object
       required: [userId, nickname, avatarUrl]
