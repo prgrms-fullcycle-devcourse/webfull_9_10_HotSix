@@ -51,15 +51,17 @@ export class GameStateService {
 
   async saveGameResult() {
     const gameData = await this.getCurrentGame();
+    // 채팅 부분의 Database가 없어서 미뤄짐
+    /*
     const chatData = await this.redisService.instance.lrange(`game:chat`, 0, -1);
-
+    */
     if (!gameData || gameData.participants.length === 0) {
       throw new BadRequestException("저장할 정보가 없습니다.");
     }
 
     const { error: gameError } = await this.supabaseService.instance.from("games").insert({
       id: gameData.game.id,
-      status: false,
+      status: gameData.game.phase,
       started_at: gameData.game.startedAt,
       ended_at: new Date().toISOString(),
       total_players: gameData.participants.filter((p) => p.role === "player").length,
@@ -103,7 +105,12 @@ export class GameStateService {
   }
 
   async getCurrentGame() {
-    const gameData = await this.redisService.instance.hgetall("game:current");
+    const currentGameId = await this.redisService.instance.get("battle:current-game-id");
+    const redisData = (await this.redisService.instance.get(
+      `battle:game:${currentGameId}:state`,
+    )) as string;
+
+    const gameData = JSON.parse(redisData);
 
     if (!gameData || Object.keys(gameData).length === 0) {
       throw new NotFoundException("진행중인 게임이 없습니다.");
@@ -119,16 +126,23 @@ export class GameStateService {
         id: gameData?.id ?? 0,
         phase: gameData?.status ?? "wait",
         startedAt: gameData?.started_at ?? "",
-        minPlayers: 4,
-        totalPlayers: totalPlayers,
+        minPlayers: gameData?.minPlayers ?? 4,
+        playerCount: totalPlayers,
         spectatorCount: spectatorCount,
-        winnerUserId: gameData?.winnerUserId ?? null,
+        waitingStartedAt: gameData?.waitingStartedAt ?? "",
+        waitingEndsAt: gameData?.waitingEndsAt ?? "",
+        gameStartedAt: gameData?.gameStartedAt ?? "",
+        gameEndedAt: gameData?.gameEndedAt ?? "",
+        createdAt: gameData?.createdAt ?? "",
+        updatedAt: gameData?.updatedAt ?? "",
       },
       prompt: {
-        // TODO: 프롬프트 설정
-        id: 7,
-        text: "빠른 갈색 여우가 게으른 개를 뛰어넘는다.",
-        totalLength: 27,
+        id: gameData?.prompt.id,
+        slug: gameData?.prompt.slug,
+        title: gameData?.prompt.title,
+        content: gameData?.prompt.content,
+        contentLength: gameData?.prompt.contentLength,
+        language: gameData?.prompt.language,
       },
       participants: participants,
     };

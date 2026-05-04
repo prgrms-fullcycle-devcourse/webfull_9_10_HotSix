@@ -22,7 +22,7 @@ export class MatchService {
     const role = gameStatus === "in_progress" ? "spectator" : "player";
     const status = gameStatus === "in_progress" ? "spectating" : "waiting";
 
-    await this.redis.instance.sadd("match:players", userId);
+    await this.redis.instance.sadd("lobby:players", userId);
     await this.redis.instance.hset(
       `match:player:${userId}`,
       "nickname",
@@ -47,14 +47,14 @@ export class MatchService {
   }
 
   async getAllUsers(): Promise<MatchPlayerDto[]> {
-    const userIds = await this.redis.instance.smembers("match:players");
+    const userIds = await this.redis.instance.smembers("lobby:players");
 
     if (userIds.length === 0) return [];
 
     const players = await Promise.all(
       userIds.map(async (userId) => {
-        const profile = await this.redis.instance.hgetall(`match:player:${userId}`);
-        const gameData = await this.redis.instance.hgetall(`game:player:${userId}`);
+        const profile = await this.redis.instance.hgetall(`lobby:player:${userId}`);
+        const gameData = await this.redis.instance.hgetall(`lobby:player:${userId}:state`);
         if (!profile || Object.keys(profile).length === 0) return null;
 
         return {
