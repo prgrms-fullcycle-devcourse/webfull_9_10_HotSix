@@ -3,9 +3,8 @@ import hangul from "hangul-js";
 import { useEffect, useRef, useState } from "react";
 
 import HeartStatus from "@/components/game/HeartStatus";
-
-type FontSize = "small" | "medium" | "large";
-type MatchState = "correct" | "wrong" | "composing" | "untyped";
+import { FONT_SIZE_CLASS } from "@/constants/game/font";
+import type { FontSize, MatchState } from "@/types";
 
 function getMatchState(
   input: string | undefined,
@@ -113,14 +112,17 @@ const TypingGame = () => {
   };
 
   return (
-    <div className="flex flex-col w-[900px] bg-[#454545] border-[4px] border-black shadow-[8px_8px_0px_#000] p-6 gap-4">
+    <div className="flex flex-col w-full max-w-[900px] min-w-0 bg-[#454545] border-[4px] border-black shadow-[8px_8px_0px_#000] p-4 sm:p-6 gap-4">
       <div className="flex justify-between items-center">
         <div className="text-white text-xl">⌨️</div>
         <HeartStatus life={life} />
       </div>
 
       <div className="border-[4px] border-black bg-[#3b3b3b] p-6">
-        <div ref={containerRef} className="w-full h-[240px] overflow-hidden">
+        <div
+          ref={containerRef}
+          className="w-full h-[180px] sm:h-[220px] md:h-[240px] overflow-hidden"
+        >
           <div className="whitespace-pre-wrap break-keep leading-[2.5] text-[24px]">
             {visibleLines.map((line, visibleLineIndex) => {
               const isCurrentLine = visibleLineIndex === 0;
@@ -130,6 +132,7 @@ const TypingGame = () => {
                 <p key={lineKey}>
                   {Array.from(line).map((char, charIndex) => {
                     const charKey = `${lineKey}-${charIndex}-${char.charCodeAt(0)}`;
+
                     if (!isCurrentLine) {
                       return (
                         <span key={charKey} className="text-gray-500">
@@ -158,9 +161,7 @@ const TypingGame = () => {
                         ref={charIndex === currentInput.length - 1 ? cursorRef : null}
                         key={charKey}
                         className={clsx(
-                          fontSize === "small" && "text-base",
-                          fontSize === "medium" && "text-[24px]",
-                          fontSize === "large" && "text-3xl",
+                          FONT_SIZE_CLASS[fontSize],
                           state === "correct" && "text-green-400",
                           state === "composing" && "text-yellow-400",
                           state === "wrong" && "text-red-400",
