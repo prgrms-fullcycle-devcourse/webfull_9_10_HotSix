@@ -84,4 +84,28 @@ export class DocsController {
   getErd() {
     return readFileSync(resolveDocsPath("erd.md"), "utf8");
   }
+
+  @Get("socket-io")
+  @Header("Content-Type", "text/html; charset=utf-8")
+  getSocketIoSpecHtml() {
+    return readFileSync(resolveDocsPath("socket-io-spec.html"), "utf8");
+  }
+
+  @Get("socket-io.md")
+  @Header("Content-Type", "text/markdown; charset=utf-8")
+  getSocketIoSpecMarkdown() {
+    return readFileSync(resolveDocsPath("socket-io-spec.md"), "utf8");
+  }
+
+  @Get("redis")
+  @Header("Content-Type", "text/html; charset=utf-8")
+  getRedisSpecHtml() {
+    return readFileSync(resolveDocsPath("redis-spec.html"), "utf8");
+  }
+
+  @Get("redis.md")
+  @Header("Content-Type", "text/markdown; charset=utf-8")
+  getRedisSpecMarkdown() {
+    return readFileSync(resolveDocsPath("redis-spec.md"), "utf8");
+  }
 }

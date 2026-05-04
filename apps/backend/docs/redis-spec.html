@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Keyboard Warrior Battle Royale Redis Docs</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1117;
+        --panel: #151925;
+        --line: #2a3142;
+        --text: #eef2ff;
+        --muted: #9aa5bf;
+        --accent: #5db0ff;
+        --chip-bg: #333847;
+        --chip-text: #f5f7ff;
+        --code-bg: #202634;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, #0f1117 0%, #121725 100%);
+        color: var(--text);
+        font-family:
+          "Pretendard",
+          "Noto Sans KR",
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+      }
+
+      main {
+        width: min(1200px, calc(100% - 32px));
+        margin: 32px auto 64px;
+      }
+
+      .hero,
+      .section {
+        padding: 24px 28px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(21, 25, 37, 0.92);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+      }
+
+      .section {
+        margin-top: 24px;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        letter-spacing: -0.03em;
+      }
+
+      h2 {
+        font-size: 18px;
+        margin-bottom: 16px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .hero p {
+        margin: 12px 0 0;
+        max-width: 860px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .meta span {
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.02);
+        font-size: 13px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 16px 14px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        text-align: left;
+      }
+
+      th {
+        color: #f7f9ff;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      td {
+        color: #dfe6f7;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      code.inline {
+        padding: 3px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #f7f9ff;
+        font-family:
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          monospace;
+        font-size: 13px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 10px;
+        border-radius: 8px;
+        background: var(--chip-bg);
+        color: var(--chip-text);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      pre {
+        margin: 0;
+        padding: 12px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 14px;
+        background: var(--code-bg);
+        overflow-x: auto;
+      }
+
+      pre code {
+        color: #d8e4ff;
+        font-family:
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      @media (max-width: 960px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>Redis Key-Value Specification</h1>
+        <p>
+          현재 백엔드 구현에서 실제로 사용하는 Redis 키 구조를 정리한 문서입니다.
+          배틀 상태, 타이머 락, 로비 플레이어 집합을 중심으로 확인할 수 있습니다.
+        </p>
+        <div class="meta">
+          <span>Storage: Redis</span>
+          <span>Client: ioredis</span>
+          <span>Primary Domain: battle / lobby</span>
+          <span>Connection: REDIS_URL</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>키 요약</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Key Prefix / Pattern</th>
+                <th>Key 이름</th>
+                <th>Data Type</th>
+                <th>Value 구조 / 설명</th>
+                <th>TTL (만료 시간)</th>
+                <th>비고</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code class="inline">battle:current-game-id</code></td>
+                <td><code class="inline">battle:current-game-id</code></td>
+                <td><span class="chip">String</span></td>
+                <td>현재 활성 게임을 가리키는 <code class="inline">gameId</code> 문자열</td>
+                <td>없음</td>
+                <td>현재 게임 포인터</td>
+              </tr>
+              <tr>
+                <td><code class="inline">battle:game:{gameId}:state</code></td>
+                <td><code class="inline">battle:game:{gameId}:state</code></td>
+                <td><span class="chip">String(JSON)</span></td>
+                <td><code class="inline">CurrentGameState</code> 전체 JSON 문자열</td>
+                <td>없음</td>
+                <td>게임 상태 스냅샷</td>
+              </tr>
+              <tr>
+                <td><code class="inline">battle:timer-lock</code></td>
+                <td><code class="inline">battle:timer-lock</code></td>
+                <td><span class="chip">String</span></td>
+                <td>타이머 실행권을 의미하는 <code class="inline">lockToken</code> 문자열</td>
+                <td>1초</td>
+                <td>중복 타이머 실행 방지용 락</td>
+              </tr>
+              <tr>
+                <td><code class="inline">lobby:players</code></td>
+                <td><code class="inline">lobby:players</code></td>
+                <td><span class="chip">Set</span></td>
+                <td>로비에 입장한 플레이어 <code class="inline">userId</code> 집합</td>
+                <td>없음</td>
+                <td>현재는 퇴장 정리 로직 없음</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Value Reference</h2>
+        <div class="grid">
+          <div class="card">
+            <h3><code class="inline">battle:current-game-id</code></h3>
+            <pre><code>"01969f5d-dc6d-7b11-b9df-7d8e9a2d10fa"</code></pre>
+          </div>
+          <div class="card">
+            <h3><code class="inline">battle:timer-lock</code></h3>
+            <pre><code>"01969f5d-dc80-7a4b-b6b3-3b4c91a80f1b"</code></pre>
+          </div>
+          <div class="card">
+            <h3><code class="inline">battle:game:{gameId}:state</code></h3>
+            <pre><code>{
+  "gameId": "01969f5d-dc6d-7b11-b9df-7d8e9a2d10fa",
+  "prompt": {
+    "id": 2,
+    "slug": "city-before-rain-750",
+    "title": "비 오기 전 도시",
+    "content": "string",
+    "contentLength": 750,
+    "language": "ko"
+  },
+  "phase": "waiting",
+  "minPlayers": 4,
+  "playerCount": 2,
+  "spectatorCount": 0,
+  "waitingStartedAt": "2026-05-04T12:00:00.000Z",
+  "waitingEndsAt": "2026-05-04T12:15:00.000Z",
+  "gameStartedAt": null,
+  "gameEndedAt": null,
+  "createdAt": "2026-05-04T12:00:00.000Z",
+  "updatedAt": "2026-05-04T12:00:00.000Z"
+}</code></pre>
+          </div>
+          <div class="card">
+            <h3><code class="inline">lobby:players</code></h3>
+            <pre><code>["user-1", "user-2", "user-3"]</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>운영 규칙</h2>
+        <ul>
+          <li><code class="inline">battle:current-game-id</code> 와 <code class="inline">battle:game:{gameId}:state</code> 는 항상 같이 사용됩니다.</li>
+          <li>대기 타이머는 <code class="inline">battle:timer-lock</code> 을 먼저 획득한 인스턴스만 실행합니다.</li>
+          <li>게임 시작 조건은 Redis 상태의 <code class="inline">playerCount &gt;= minPlayers</code> 입니다.</li>
+          <li>대기 시간이 끝났는데 플레이어가 4명 미만이면 같은 <code class="inline">gameId</code> 상태에서 대기 시간만 15분 다시 시작합니다.</li>
+          <li><code class="inline">prompt.content</code> 전체 문자열은 Redis 원본 상태에는 저장되지만, Socket 응답에서는 phase 와 stage 에 따라 노출 여부가 달라질 수 있습니다.</li>
+        </ul>
+        <p style="margin-top: 16px;">
+          원본 markdown 문서는 <a href="/docs/redis.md">/docs/redis.md</a> 에서 확인할 수 있습니다.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
