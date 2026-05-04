@@ -112,7 +112,7 @@ const TypingGame = () => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-[900px] min-w-0 bg-[#454545] border-[4px] border-black shadow-[8px_8px_0px_#000] p-4 sm:p-6 gap-4">
+    <div className="flex min-w-0 w-full max-w-[916px] flex-col gap-4 border-[4px] border-black bg-[#454545] p-4 shadow-[8px_8px_0px_#000] sm:p-6">
       <div className="flex justify-between items-center">
         <div className="text-white text-xl">⌨️</div>
         <HeartStatus life={life} />

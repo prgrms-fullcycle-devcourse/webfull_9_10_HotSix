@@ -1,32 +1,50 @@
 type RaceTrackProps = {
-  progress: number; // 0 ~ 100
+  progress: number;
 };
 
 export default function RaceTrack({ progress }: RaceTrackProps) {
+  const safeProgress = Math.min(100, Math.max(0, progress));
+
+  // 트랙 계산값 (피그마 기준)
+  const TRACK_START = 72; // left-[72px]
+  const TRACK_END = 48; // right-[48px]
+  const TRACK_WIDTH = 843 - TRACK_START - TRACK_END; // 실제 도로 길이
+
   return (
-    <div className="relative w-full max-w-[843px] h-[87px] border-4 border-blue-400 bg-white overflow-hidden">
+    <section className="relative h-[87px] w-full max-w-[900px] overflow-visible">
       {/* 도로 */}
-      <div className="absolute top-1/2 left-0 w-full h-[40px] -translate-y-1/2 bg-[#333] flex items-center">
+      <div className="absolute left-[72px] right-[48px] top-1/2 h-[54px] -translate-y-1/2 bg-[#333333]">
+        {/* 위 빨간 라인 */}
+        <div className="absolute inset-x-0 top-0 h-[8px] bg-[repeating-linear-gradient(to_right,#ff6b6b_0px,#ff6b6b_18px,white_18px,white_36px)]" />
+
+        {/* 아래 빨간 라인 */}
+        <div className="absolute inset-x-0 bottom-0 h-[8px] bg-[repeating-linear-gradient(to_right,#ff6b6b_0px,#ff6b6b_18px,white_18px,white_36px)]" />
+
         {/* 중앙 점선 */}
-        <div className="w-full h-[4px] bg-[repeating-linear-gradient(to_right,white_0px,white_20px,transparent_20px,transparent_40px)]" />
+        <div className="absolute inset-x-0 top-1/2 h-[7px] -translate-y-1/2 bg-[repeating-linear-gradient(to_right,white_0px,white_22px,transparent_22px,transparent_44px)]" />
       </div>
 
       {/* 자동차 */}
-      <div
-        className="absolute top-1/2 -translate-y-1/2 transition-all duration-300"
+      <img
+        src="/car-blue.png"
+        alt="player car"
+        className="absolute top-1/2 z-20 h-[72px] w-auto -translate-y-1/2 transition-all duration-300"
         style={{
-          left: `${progress}%`,
-          transform: "translate(-50%, -50%)",
+          left: `calc(${TRACK_START}px + (${safeProgress} / 100) * ${TRACK_WIDTH}px)`,
         }}
-      >
-        🚗
-      </div>
+      />
 
       {/* 골 라인 */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center text-xs font-bold text-yellow-500">
-        <div className="w-2 h-2 bg-black mb-1" />
-        <span>GOAL</span>
+      <div className="absolute right-[12px] top-1/2 z-10 flex h-[62px] -translate-y-1/2 items-center bg-white px-1">
+        <div className="mr-1 flex h-full w-[18px] flex-col">
+          <div className="h-1/2 bg-black" />
+          <div className="h-1/2 bg-[#333333]" />
+        </div>
+
+        <span className="text-[13px] font-bold leading-[13px] text-yellow-400 [writing-mode:vertical-rl]">
+          GOAL
+        </span>
       </div>
-    </div>
+    </section>
   );
 }
