@@ -4,8 +4,6 @@ import { AuthUserId } from "../common/auth-user.decorator";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersService } from "./users.service";
 
 @Controller("v1/users")
@@ -20,7 +18,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch("me")
-  updateUserProfile(@AuthUserId() userId: string, @Body() input: Partial<CreateGuestUserInput>) {
+  updateMyProfile(@AuthUserId() userId: string, @Body() input: Partial<CreateGuestUserInput>) {
     return this.usersService.updateMyProfile(userId, input);
   }
 
@@ -45,10 +43,5 @@ export class UsersController {
   @Get(":userId/dashboard")
   getUserDashboard(@Param("userId") userId: string) {
     return this.usersService.getMyDashboard(userId);
-  }
-
-  @Patch(":userId/dashboard")
-  updateUserDashboard(@Param("userId") userId: string, @Body() input: UpdateDashboardInput) {
-    return this.usersService.updateMyDashboard(userId, input);
   }
 }

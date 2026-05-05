@@ -1,253 +1,219 @@
-import { randomUUID } from "node:crypto";
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from "@nestjs/common";
+
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { MatchService } from "../match/match.service";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { RedisService } from "../storage/redis/redis.service";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { SupabaseService } from "../storage/supabase/supabase.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersService } from "../users/users.service";
-
-type UserProfile = {
-  id: string;
-  nickname: string;
-  avatarUrl: string;
-  createdAt: string;
-};
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { GameStateDto } from "./dto/gameState.dto";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { ParticipantDto, ParticipantExtendDto } from "./dto/participant.dto";
 
 @Injectable()
 export class GameStateService {
-  private readonly users = new Map<string, UserProfile>();
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly userService: UsersService,
+    private readonly redisService: RedisService,
+    private readonly matchService: MatchService,
+  ) {}
 
-  constructor(private usersService: UsersService) {
-    const seededUsers: UserProfile[] = [
-      this.buildUser("demo-user-1", "폭주하는타자왕", "https://cdn.example.com/avatars/fox-1.png"),
-      this.buildUser(
-        "demo-user-2",
-        "침착한고슴도치",
-        "https://cdn.example.com/avatars/hedgehog-1.png",
-      ),
-      this.buildUser(
-        "demo-user-3",
-        "도약하는치타",
-        "https://cdn.example.com/avatars/cheetah-1.png",
-      ),
-      this.buildUser("demo-user-4", "질주하는매", "https://cdn.example.com/avatars/hawk-1.png"),
-      this.buildUser("demo-user-5", "분석하는올빼미", "https://cdn.example.com/avatars/owl-1.png"),
-    ];
+  // 대전 이력 확인용
+  async getGameResultById(userId: string, gameId: string) {
+    await this.userService.getMyProfile(userId);
 
-    for (const user of seededUsers) {
-      this.users.set(user.id, user);
+    const { data, error } = await this.supabaseService.instance
+      .from("participants")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("game_id", gameId)
+      .maybeSingle<ParticipantDto>();
+
+    if (error) {
+      throw new InternalServerErrorException("기록 불러오기에 실패했습니다.");
     }
+
+    if (!data) {
+      throw new NotFoundException("정보가 없습니다.");
+    }
+
+    return this.toParticipant(data);
   }
 
-  createAnonymousUser(preferredNickname?: string) {
-    const user = this.buildUser(
-      randomUUID(),
-      this.buildNickname(preferredNickname),
-      this.buildAvatarUrl(),
+  async saveGameResult() {
+    const gameData = await this.getCurrentGame();
+    // 채팅 부분의 Database가 없어서 미뤄짐
+    /*
+    const chatData = await this.redisService.instance.lrange(`game:chat`, 0, -1);
+    */
+    if (!gameData || gameData.participants.length === 0) {
+      throw new BadRequestException("저장할 정보가 없습니다.");
+    }
+
+    const { error: gameError } = await this.supabaseService.instance.from("games").insert({
+      id: gameData.game.id,
+      status: gameData.game.phase,
+      started_at: gameData.game.startedAt,
+      ended_at: new Date().toISOString(),
+      total_players: gameData.participants.filter((p) => p.role === "player").length,
+      winner_user_id: gameData.participants[0]?.userId ?? null,
+    });
+
+    if (gameError) {
+      throw new InternalServerErrorException("게임 정보 저장에 실패했습니다.");
+    }
+
+    await Promise.all(
+      gameData.participants
+        .filter((p) => p.role === "player")
+        .map(async (p) => {
+          const { error } = await this.supabaseService.instance.from("participants").insert({
+            game_id: gameData.game.id,
+            user_id: p.userId,
+            final_rank: p.rank,
+            is_winner: p.rank === 1,
+            is_survived: !p.isEliminated,
+            life: p.life,
+            wpm: p.wpm,
+            accuracy: p.accuracy,
+            created_at: new Date().toISOString(),
+          });
+
+          if (error) {
+            throw new InternalServerErrorException("참가자 저장에 실패했습니다.");
+          }
+        }),
     );
-
-    this.users.set(user.id, user);
-
-    return user;
+    // 채팅 부분의 Database가 없어서 미뤄짐
+    /*
+    await Promise.all(
+      chatData.map((raw) => {
+        const msg = JSON.parse(raw);
+        return this.supabaseService.instance.from("")
+      })
+    )
+    */
   }
 
-  async getDashboard(userId: string) {
-    const user = await this.usersService.getMyProfile(userId);
+  async getCurrentGame() {
+    const currentGameId = await this.redisService.instance.get("battle:current-game-id");
+    const redisData = (await this.redisService.instance.get(
+      `battle:game:${currentGameId}:state`,
+    )) as string;
 
-    return {
-      userId: user.id,
-      nickname: user.nickname,
-      joinedAt: user.createdAt,
-      totalGames: 42,
-      wins: 8,
-      averageRank: 3.4,
-      recentRank: 2,
-      bestRank: 1,
-      averageWpm: 312,
-      averageAccuracy: 97,
-    };
-  }
+    const gameData = JSON.parse(redisData);
 
-  async getCurrentMatchStatus(userId: string) {
-    const user = await this.usersService.getMyDashboard(userId);
+    if (!gameData || Object.keys(gameData).length === 0) {
+      throw new NotFoundException("진행중인 게임이 없습니다.");
+    }
 
-    return {
-      match: {
-        gameId: 104,
-        phase: "waiting",
-        minPlayers: 4,
-        waitingPlayerCount: 6,
-        playerCount: 6,
-        spectatorCount: 3,
-        eliminatedCount: 0,
-        startsAt: "2026-04-27T10:05:00Z",
-        startedAt: null,
-        endsAt: null,
-        serverTime: "2026-04-27T10:04:42Z",
-      },
-      waitingRoom: {
-        title: "다음 라운드 대기실",
-        ruleSummary: [
-          "오타가 나는 즉시 탈락합니다.",
-          "가장 먼저 장문을 완성하면 우승합니다.",
-          "생존자가 1명만 남아도 즉시 종료됩니다.",
-        ],
-        countdownSeconds: 18,
-      },
-      me: {
-        userId: user.userId,
-        nickname: user.nickname,
-        role: "player",
-        status: "waiting",
-        hasActiveSession: true,
-      },
-    };
-  }
+    const participants = await this.matchService.getAllUsers();
 
-  async joinCurrentMatch(userId: string, clientSessionId: string, preferredRole?: string) {
-    const user = await this.usersService.getMyDashboard(userId);
-    const assignedRole = preferredRole === "spectator" ? "spectator" : "player";
-    const assignedStatus = assignedRole === "spectator" ? "spectating" : "waiting";
+    const totalPlayers = participants.filter((p) => p.role === "player").length;
+    const spectatorCount = participants.filter((p) => p.role === "spectator").length;
 
-    return {
-      gameId: 104,
-      assignedRole,
-      assignedStatus,
-      socketNamespace: "/battle",
-      socketAuthToken: `ws_tk_${clientSessionId}`,
-      reason: null,
-      user,
-    };
-  }
-
-  getCurrentGame() {
     return {
       game: {
-        id: 104,
-        phase: "in_progress",
-        minPlayers: 4,
-        totalPlayers: 6,
-        spectatorCount: 3,
-        winnerUserId: null,
+        id: gameData?.id ?? 0,
+        phase: gameData?.status ?? "wait",
+        startedAt: gameData?.started_at ?? "",
+        minPlayers: gameData?.minPlayers ?? 4,
+        playerCount: totalPlayers,
+        spectatorCount: spectatorCount,
+        waitingStartedAt: gameData?.waitingStartedAt ?? "",
+        waitingEndsAt: gameData?.waitingEndsAt ?? "",
+        gameStartedAt: gameData?.gameStartedAt ?? "",
+        gameEndedAt: gameData?.gameEndedAt ?? "",
+        createdAt: gameData?.createdAt ?? "",
+        updatedAt: gameData?.updatedAt ?? "",
       },
       prompt: {
-        id: 7,
-        text: "빠른 갈색 여우가 게으른 개를 뛰어넘는다.",
-        totalLength: 27,
+        id: gameData?.prompt.id,
+        slug: gameData?.prompt.slug,
+        title: gameData?.prompt.title,
+        content: gameData?.prompt.content,
+        contentLength: gameData?.prompt.contentLength,
+        language: gameData?.prompt.language,
       },
-      participants: this.getParticipants(),
-    };
-  }
-
-  getCurrentScoreboard() {
-    return {
-      gameId: 104,
-      phase: "in_progress",
-      participants: this.getParticipants(),
+      participants: participants,
     };
   }
 
   async getCurrentSpectators() {
-    return {
-      gameId: 104,
-      spectatorCount: 3,
-      playerCount: 6,
-      eliminatedCount: 1,
-      spectators: [
-        //this.toUserPreview(this.getUserById("demo-user-3")),
-        //this.toUserPreview(this.getUserById("demo-user-4")),
-        //this.toUserPreview(this.getUserById("demo-user-5")),
-      ],
-    };
+    const spectators = (await this.matchService.getAllUsers())
+      .filter((p) => p.role === "spectator")
+      .map((p) => ({ userId: p.userId, nickname: p.nickname, avatarUrl: p.avatarUrl }));
+
+    return spectators;
   }
 
-  getLatestGameResult() {
-    return {
-      gameId: 103,
-      finishedAt: "2026-04-27T09:58:05Z",
-      //winner: this.toUserPreview(this.getUserById("demo-user-1")),
-      rankings: [
-        {
-          rank: 1,
-          userId: "demo-user-1",
-          nickname: "폭주하는타자왕",
-          finalStatus: "winner",
-          typedLength: 27,
-          accuracy: 100,
-          wpm: 341,
-        },
-        {
-          rank: 2,
-          userId: "demo-user-2",
-          nickname: "침착한고슴도치",
-          finalStatus: "eliminated",
-          typedLength: 22,
-          accuracy: 95,
-          wpm: 315,
-        },
-      ],
-    };
+  async getCurrentScoreboard() {
+    const players = (await this.matchService.getAllUsers()).filter((p) => p.role === "player");
+
+    return players;
   }
 
-  private getParticipants() {
-    return [
-      {
-        userId: "demo-user-1",
-        nickname: "폭주하는타자왕",
-        avatarUrl: "https://cdn.example.com/avatars/fox-1.png",
-        role: "player",
-        status: "alive",
-        progressPercent: 74,
-        typedLength: 20,
-        rank: 1,
-        wpm: 328,
-        accuracy: 98,
-      },
-      {
-        userId: "demo-user-2",
-        nickname: "침착한고슴도치",
-        avatarUrl: "https://cdn.example.com/avatars/hedgehog-1.png",
-        role: "player",
-        status: "alive",
-        progressPercent: 69,
-        typedLength: 18,
-        rank: 2,
-        wpm: 305,
-        accuracy: 97,
-      },
-      {
-        userId: "demo-user-3",
-        nickname: "도약하는치타",
-        avatarUrl: "https://cdn.example.com/avatars/cheetah-1.png",
-        role: "spectator",
-        status: "spectating",
-        progressPercent: 0,
-        typedLength: 0,
-        rank: 3,
-        wpm: 0,
-        accuracy: 0,
-      },
-    ];
-  }
+  async getLatestGameResult() {
+    const { data: game, error: gameError } = await this.supabaseService.instance
+      .from("games")
+      .select("*")
+      .order("ended_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<GameStateDto>();
 
-  private buildUser(id: string, nickname: string, avatarUrl: string): UserProfile {
-    return {
-      id,
-      nickname,
-      avatarUrl,
-      createdAt: "2026-04-27T10:00:00Z",
-    };
-  }
-
-  private buildNickname(preferredNickname?: string) {
-    if (preferredNickname?.trim()) {
-      return preferredNickname.trim();
+    if (gameError) {
+      throw new InternalServerErrorException("게임 결과 조회에 실패했습니다.");
     }
 
-    return `익명타자${Math.floor(Math.random() * 9000) + 1000}`;
+    if (!game) {
+      throw new NotFoundException("종료된 게임이 없습니다.");
+    }
+
+    const { data: participants, error: participantsError } = await this.supabaseService.instance
+      .from("participants")
+      .select<"*, users (nickname, avatar_url)", ParticipantExtendDto>(
+        "*, users (nickname, avatar_url)",
+      )
+      .eq("game_id", game.id)
+      .order("final_rank", { ascending: true });
+
+    if (participantsError) {
+      throw new InternalServerErrorException("게임 결과 조회에 실패했습니다.");
+    }
+
+    if (!participants) {
+      throw new NotFoundException("해당 게임의 참가자가 없습니다.");
+    }
+
+    return {
+      gameId: game.id,
+      startedAt: game.started_at,
+      endedAt: game.ended_at,
+      winner: participants[0]?.users?.nickname ?? "",
+      rankings: participants,
+    };
   }
-
-  private buildAvatarUrl() {
-    const avatarIds = ["fox-1", "hedgehog-1", "cheetah-1", "hawk-1", "owl-1"];
-    const avatarId = avatarIds[Math.floor(Math.random() * avatarIds.length)];
-
-    return `https://cdn.example.com/avatars/${avatarId}.png`;
+  private toParticipant(row: ParticipantDto) {
+    return {
+      userId: row.user_id,
+      gameId: row.game_id,
+      chatId: row.chat_id,
+      finalRank: row.final_rank,
+      isWinner: row.is_winner,
+      isSurvived: row.is_survived,
+      life: row.life,
+      wpm: row.wpm,
+      accuracy: row.accuracy,
+      createdAt: row.created_at,
+    };
   }
 }

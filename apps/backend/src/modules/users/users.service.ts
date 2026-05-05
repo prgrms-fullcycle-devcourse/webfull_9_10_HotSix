@@ -2,8 +2,6 @@ import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersRepository } from "./users.repository";
 
 @Injectable()
@@ -25,11 +23,6 @@ export class UsersService {
   async deleteMyProfile(userId: string) {
     return this.usersRepository.deleteGuestUser(userId);
   }
-
-  async updateMyDashboard(userId: string, input: UpdateDashboardInput) {
-    return this.usersRepository.updateDashboardByUserId(userId, input);
-  }
-
   async createGuestUser() {
     const nickname = this.buildRandomNickname();
     const avatarUrl = this.buildRandomAvatarUrl();

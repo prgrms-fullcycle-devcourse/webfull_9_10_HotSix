@@ -120,7 +120,7 @@ export class UsersRepository {
 
     const { data, error } = await this.supabaseService.instance
       .from("user_stats")
-      .select("total_games, wins, avg_rank, best_rank, recent_rank, wpm, accuracy")
+      .select("*")
       .eq("user_id", userId)
       .maybeSingle<UserStatsDto>();
 
@@ -134,11 +134,16 @@ export class UsersRepository {
       joinedAt: user.createdAt,
       totalGames: data?.total_games ?? 0,
       wins: data?.wins ?? 0,
+      totalPlayCount: data?.total_play_count ?? 0,
       averageRank: data?.avg_rank ?? 0,
       recentRank: data?.recent_rank ?? 0,
       bestRank: data?.best_rank ?? 0,
+      topPercentile: data?.top_percentile ?? 0,
       averageWpm: data?.wpm ?? 0,
       averageAccuracy: data?.accuracy ?? 0,
+      averageWordCount: data?.avg_word_count ?? 0,
+      recentWordCount: data?.recent_word_count ?? 0,
+      totalWordCount: data?.total_word_count ?? 0,
     };
   }
 
@@ -154,6 +159,12 @@ export class UsersRepository {
     if (input.recentRank !== undefined) updatePayload.recent_rank = input.recentRank;
     if (input.wpm !== undefined) updatePayload.wpm = input.wpm;
     if (input.accuracy !== undefined) updatePayload.accuracy = input.accuracy;
+    if (input.topPercentile !== undefined) updatePayload.top_percentile = input.topPercentile;
+    if (input.totalPlayCount !== undefined) updatePayload.total_play_count = input.totalPlayCount;
+    if (input.avgWordCount !== undefined) updatePayload.avg_word_count = input.avgWordCount;
+    if (input.recentWordCount !== undefined)
+      updatePayload.recent_word_count = input.recentWordCount;
+    if (input.totalWordCount !== undefined) updatePayload.total_word_count = input.totalWordCount;
 
     if (Object.keys(updatePayload).length === 0) {
       throw new BadRequestException("수정할 항목이 없습니다.");
@@ -176,11 +187,16 @@ export class UsersRepository {
       joinedAt: user.createdAt,
       totalGames: data?.total_games ?? 0,
       wins: data?.wins ?? 0,
+      totalPlayCount: data?.total_play_count ?? 0,
       averageRank: data?.avg_rank ?? 0,
       recentRank: data?.recent_rank ?? 0,
       bestRank: data?.best_rank ?? 0,
+      topPercentile: data?.top_percentile ?? 0,
       averageWpm: data?.wpm ?? 0,
       averageAccuracy: data?.accuracy ?? 0,
+      averageWordCount: data?.avg_word_count ?? 0,
+      recentWordCount: data?.recent_word_count ?? 0,
+      totalWordCount: data?.total_word_count ?? 0,
     };
   }
 
