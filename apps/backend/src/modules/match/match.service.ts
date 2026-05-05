@@ -24,7 +24,7 @@ export class MatchService {
 
     await this.redis.instance.sadd("lobby:players", userId);
     await this.redis.instance.hset(
-      `match:player:${userId}`,
+      `lobby:player:${userId}`,
       "nickname",
       user.nickname,
       "avatarUrl",
