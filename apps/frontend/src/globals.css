@@ -41,11 +41,7 @@
   }
 
   .bg-dash-white {
-    background-image: repeating-linear-gradient(
-      90deg,
-      #ffffff 0 18px,
-      transparent 18px 36px
-    );
+    background-image: repeating-linear-gradient(90deg, #ffffff 0 18px, transparent 18px 36px);
   }
 }
 
