@@ -51,6 +51,11 @@ function createSocket() {
     },
     data: {},
     emit,
+    handshake: {
+      auth: {
+        token: "ws_tk_123",
+      },
+    },
     id: "socket-1",
     join,
   } as unknown as Socket;
@@ -101,17 +106,28 @@ describe("BattleGateway", () => {
       waiting,
     });
     const getWelcomeMessage = jest.fn(() => ({ message: "connected" }));
+    const verifySocketAuthToken = jest.fn().mockResolvedValue({ userId: "user-1" });
     const battleService = {
       getWelcomeMessage,
       registerConnection,
+      verifySocketAuthToken,
     } as unknown as BattleService;
     const gateway = new BattleGateway(battleService, {} as BattleBroadcastService);
     const { broadcastEmit, broadcastTo, emit, join, socket } = createSocket();
 
     await gateway.handleConnection(socket);
 
-    expect(registerConnection).toHaveBeenCalledWith();
-    expect(socket.data).toMatchObject({ assignedRole: "player", gameId: state.gameId });
+    expect(verifySocketAuthToken).toHaveBeenCalledWith("ws_tk_123");
+    expect(registerConnection).toHaveBeenCalledWith({
+      participantId: "user-1",
+      socketId: "socket-1",
+    });
+    expect(socket.data).toMatchObject({
+      assignedRole: "player",
+      gameId: state.gameId,
+      participantId: "user-1",
+      userId: "user-1",
+    });
     expect(join).toHaveBeenCalledWith("battle:game-1");
     expect(emit).toHaveBeenCalledWith(SOCKET_EVENTS.BATTLE_WELCOME, { message: "connected" });
     expect(emit).toHaveBeenCalledWith(SOCKET_EVENTS.BATTLE_STATE, state);
@@ -148,12 +164,15 @@ describe("BattleGateway", () => {
     gateway.server = server;
     socket.data.assignedRole = "player";
     socket.data.gameId = "game-1";
+    socket.data.participantId = "user-1";
 
     await gateway.handleDisconnect(socket);
 
     expect(unregisterConnection).toHaveBeenCalledWith({
       assignedRole: "player",
       gameId: "game-1",
+      participantId: "user-1",
+      socketId: "socket-1",
     });
     expect(to).toHaveBeenCalledWith("battle:game-1");
     expect(emit).toHaveBeenCalledWith(SOCKET_EVENTS.BATTLE_WAITING, waiting);
