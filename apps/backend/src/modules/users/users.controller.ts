@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, UseGuards } from
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUserId } from "../common/auth-user.decorator";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
+import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersService } from "./users.service";
 
@@ -18,7 +18,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch("me")
-  updateMyProfile(@AuthUserId() userId: string, @Body() input: Partial<CreateGuestUserInput>) {
+  updateMyProfile(@AuthUserId() userId: string, @Body() input: UpdateMyProfileInput) {
     return this.usersService.updateMyProfile(userId, input);
   }
 
