@@ -1,5 +1,6 @@
 export const SOCKET_EVENTS = {
   BATTLE_COUNTDOWN: "battle:countdown",
+  BATTLE_ELIMINATED: "battle:eliminated",
   BATTLE_FINISHED: "battle:finished",
   BATTLE_JOIN: "battle:join",
   BATTLE_READY: "battle:ready",
