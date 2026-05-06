@@ -8,7 +8,6 @@ import { BattleService } from "./battle.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleBroadcastService } from "./battle-broadcast.service";
 
-const TEN_SECOND_NOTICE_THRESHOLD = 10;
 const TIMER_INTERVAL_MILLISECONDS = 1000;
 const TIMER_LOCK_TTL_SECONDS = 1;
 
@@ -107,22 +106,6 @@ export class BattleCycleService implements OnModuleDestroy, OnModuleInit {
       );
 
       return;
-    }
-
-    if (
-      remainingSeconds <= TEN_SECOND_NOTICE_THRESHOLD &&
-      !currentGameState.hasTenSecondNoticeSent
-    ) {
-      const updatedGameState = await this.battleService.markTenSecondNoticeSent(currentGameState);
-
-      this.battleBroadcastService.emitToAll(
-        SOCKET_EVENTS.BATTLE_COUNTDOWN,
-        this.battleService.buildWaitingPayload(updatedGameState),
-      );
-      this.battleBroadcastService.emitToAll(
-        SOCKET_EVENTS.BATTLE_STATE,
-        this.battleService.buildStatePayload(updatedGameState),
-      );
     }
 
     this.battleBroadcastService.emitToAll(
