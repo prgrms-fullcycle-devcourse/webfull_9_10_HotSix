@@ -1,4 +1,9 @@
-import type { CanActivate, ExecutionContext, INestApplication } from "@nestjs/common";
+import {
+  type CanActivate,
+  type ExecutionContext,
+  type INestApplication,
+  ValidationPipe,
+} from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { JwtAuthGuard } from "../src/modules/auth/guards/jwt-auth.guard";
@@ -58,6 +63,13 @@ describe("Users API", () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
   });
 
@@ -101,6 +113,45 @@ describe("Users API", () => {
       expect(mockUsersService.updateMyProfile).toHaveBeenCalledTimes(1);
       expect(mockUsersService.updateMyProfile).toHaveBeenCalledWith("auth-user-123", input);
       expect(response.body).toEqual(updatedUser);
+    });
+
+    it("nickname이 너무 짧으면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          nickname: "a",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain(
+        "nickname must be longer than or equal to 2 characters",
+      );
+    });
+
+    it("avatarUrl이 URL 형식이 아니면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          avatarUrl: "not-a-url",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain("avatarUrl must be a URL address");
+    });
+
+    it("허용되지 않은 필드가 들어오면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          nickname: "valid-name",
+          role: "admin",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain("property role should not exist");
     });
   });
 
