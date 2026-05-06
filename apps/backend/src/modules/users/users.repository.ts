@@ -11,6 +11,8 @@ import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UserRowDto } from "./dto/userRow.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UserStatsDto } from "./dto/userStats.dto";
@@ -44,7 +46,7 @@ export class UsersRepository {
     return this.toUserProfile(data);
   }
 
-  async updateGuestUser(userId: string, input: Partial<CreateGuestUserInput>) {
+  async updateGuestUser(userId: string, input: UpdateMyProfileInput) {
     await this.findById(userId);
     const updatePayload: Record<string, string> = {};
 
