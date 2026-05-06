@@ -63,7 +63,14 @@ export class BattleService {
   buildStatePayload(currentGameState: CurrentGameState) {
     return {
       gameId: currentGameState.gameId,
-      prompt: currentGameState.prompt,
+      prompt:
+        currentGameState.phase === "waiting"
+          ? {
+              contentLength: currentGameState.prompt.contentLength,
+              id: currentGameState.prompt.id,
+              title: currentGameState.prompt.title,
+            }
+          : currentGameState.prompt,
       phase: currentGameState.phase,
       minPlayers: currentGameState.minPlayers,
       playerCount: currentGameState.playerCount,
@@ -105,7 +112,9 @@ export class BattleService {
     };
   }
 
-  async unregisterConnection(assignedRole?: ConnectionRole) {
+  async unregisterConnection(input: { assignedRole?: ConnectionRole; gameId?: string } = {}) {
+    const { assignedRole, gameId } = input;
+
     if (!assignedRole) {
       return null;
     }
@@ -113,6 +122,10 @@ export class BattleService {
     const currentGameState = await this.getCurrentGameState();
 
     if (!currentGameState) {
+      return null;
+    }
+
+    if (gameId && currentGameState.gameId !== gameId) {
       return null;
     }
 
