@@ -1,4 +1,11 @@
-import type { CanActivate, ExecutionContext, INestApplication } from "@nestjs/common";
+import {
+  BadRequestException,
+  type CanActivate,
+  type ExecutionContext,
+  type INestApplication,
+  UnauthorizedException,
+  ValidationPipe,
+} from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { JwtAuthGuard } from "../src/modules/auth/guards/jwt-auth.guard";
@@ -22,6 +29,12 @@ class MockJwtAuthGuard implements CanActivate {
   }
 }
 
+class RejectJwtAuthGuard implements CanActivate {
+  canActivate(_: ExecutionContext): boolean {
+    throw new UnauthorizedException();
+  }
+}
+
 function createMockUser() {
   return {
     id: "user-123",
@@ -42,6 +55,7 @@ function createMockDashboard() {
 
 describe("Users API", () => {
   let app: INestApplication;
+  let unauthorizedApp: INestApplication;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -58,7 +72,37 @@ describe("Users API", () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
+
+    const unauthorizedModuleRef = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useClass(RejectJwtAuthGuard)
+      .compile();
+
+    unauthorizedApp = unauthorizedModuleRef.createNestApplication();
+    unauthorizedApp.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    await unauthorizedApp.init();
   });
 
   beforeEach(() => {
@@ -67,6 +111,7 @@ describe("Users API", () => {
 
   afterAll(async () => {
     await app.close();
+    await unauthorizedApp.close();
   });
 
   describe("GET /v1/users/me", () => {
@@ -101,6 +146,74 @@ describe("Users API", () => {
       expect(mockUsersService.updateMyProfile).toHaveBeenCalledTimes(1);
       expect(mockUsersService.updateMyProfile).toHaveBeenCalledWith("auth-user-123", input);
       expect(response.body).toEqual(updatedUser);
+    });
+
+    it("nickname이 너무 짧으면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          nickname: "a",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain(
+        "nickname must be longer than or equal to 2 characters",
+      );
+    });
+
+    it("avatarUrl이 URL 형식이 아니면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          avatarUrl: "not-a-url",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain("avatarUrl must be a URL address");
+    });
+
+    it("nickname이 20자를 초과하면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          nickname: "this-nickname-is-way-too-long",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain(
+        "nickname must be shorter than or equal to 20 characters",
+      );
+    });
+
+    it("허용되지 않은 필드가 들어오면 400을 반환한다", async () => {
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          nickname: "valid-name",
+          role: "admin",
+        })
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+      expect(response.body.message).toContain("property role should not exist");
+    });
+
+    it("수정할 필드가 없으면 400을 반환한다", async () => {
+      mockUsersService.updateMyProfile.mockRejectedValue(
+        new BadRequestException("수정할 항목이 없습니다."),
+      );
+
+      const response = await request(app.getHttpServer())
+        .patch("/v1/users/me")
+        .send({})
+        .expect(400);
+
+      expect(mockUsersService.updateMyProfile).toHaveBeenCalledTimes(1);
+      expect(mockUsersService.updateMyProfile).toHaveBeenCalledWith("auth-user-123", {});
+      expect(response.body.message).toBe("수정할 항목이 없습니다.");
     });
   });
 
@@ -154,6 +267,31 @@ describe("Users API", () => {
       expect(mockUsersService.getMyDashboard).toHaveBeenCalledTimes(1);
       expect(mockUsersService.getMyDashboard).toHaveBeenCalledWith("user-999");
       expect(response.body).toEqual(dashboard);
+    });
+  });
+
+  describe("인증 실패", () => {
+    it("GET /v1/users/me 요청이 인증되지 않으면 401을 반환한다", async () => {
+      await request(unauthorizedApp.getHttpServer()).get("/v1/users/me").expect(401);
+
+      expect(mockUsersService.getMyProfile).not.toHaveBeenCalled();
+    });
+
+    it("PATCH /v1/users/me 요청이 인증되지 않으면 401을 반환한다", async () => {
+      await request(unauthorizedApp.getHttpServer())
+        .patch("/v1/users/me")
+        .send({
+          nickname: "updated-user",
+        })
+        .expect(401);
+
+      expect(mockUsersService.updateMyProfile).not.toHaveBeenCalled();
+    });
+
+    it("DELETE /v1/users/me 요청이 인증되지 않으면 401을 반환한다", async () => {
+      await request(unauthorizedApp.getHttpServer()).delete("/v1/users/me").expect(401);
+
+      expect(mockUsersService.deleteMyProfile).not.toHaveBeenCalled();
     });
   });
 });

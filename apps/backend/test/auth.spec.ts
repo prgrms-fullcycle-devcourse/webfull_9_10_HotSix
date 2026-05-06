@@ -1,4 +1,4 @@
-import type { INestApplication } from "@nestjs/common";
+import { type INestApplication, UnauthorizedException } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import cookieParser from "cookie-parser";
 import request from "supertest";
@@ -116,7 +116,64 @@ describe("Auth API", () => {
       expect(response.body.message).toBe("리프레시 토큰 쿠키가 없습니다.");
     });
 
-    it("refreshToken 쿠카가 있으면 세션을 갱신하고 새 쿠키를 반환한다", async () => {
+    it("유효하지 않은 refreshToken이면 401을 반환한다", async () => {
+      mockAuthService.refreshSession.mockRejectedValue(
+        new UnauthorizedException({
+          code: "INVALID_REFRESH_TOKEN",
+          message: "리프레스 토큰이 유효하지 않습니다.",
+        }),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post("/v1/auth/refresh")
+        .set("Cookie", ["refreshToken=invalid-refresh-token"])
+        .expect(401);
+
+      expect(mockAuthService.refreshSession).toHaveBeenCalledTimes(1);
+      expect(mockAuthService.refreshSession).toHaveBeenCalledWith("invalid-refresh-token");
+      expect(response.body.code).toBe("INVALID_REFRESH_TOKEN");
+      expect(response.body.message).toBe("리프레스 토큰이 유효하지 않습니다.");
+    });
+
+    it("폐기된 refreshToken이면 401을 반환한다", async () => {
+      mockAuthService.refreshSession.mockRejectedValue(
+        new UnauthorizedException({
+          code: "REFRESH_TOKEN_REVOKED",
+          message: "이미 폐기된 리프레시 토큰입니다.",
+        }),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post("/v1/auth/refresh")
+        .set("Cookie", ["refreshToken=revoked-refresh-token"])
+        .expect(401);
+
+      expect(mockAuthService.refreshSession).toHaveBeenCalledTimes(1);
+      expect(mockAuthService.refreshSession).toHaveBeenCalledWith("revoked-refresh-token");
+      expect(response.body.code).toBe("REFRESH_TOKEN_REVOKED");
+      expect(response.body.message).toBe("이미 폐기된 리프레시 토큰입니다.");
+    });
+
+    it("만료된 refreshToken이면 401을 반환한다", async () => {
+      mockAuthService.refreshSession.mockRejectedValue(
+        new UnauthorizedException({
+          code: "REFRESH_TOKEN_EXPIRED",
+          message: "만료된 리프레시 토큰입니다.",
+        }),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post("/v1/auth/refresh")
+        .set("Cookie", ["refreshToken=expired-refresh-token"])
+        .expect(401);
+
+      expect(mockAuthService.refreshSession).toHaveBeenCalledTimes(1);
+      expect(mockAuthService.refreshSession).toHaveBeenCalledWith("expired-refresh-token");
+      expect(response.body.code).toBe("REFRESH_TOKEN_EXPIRED");
+      expect(response.body.message).toBe("만료된 리프레시 토큰입니다.");
+    });
+
+    it("refreshToken 쿠키가 있으면 세션을 갱신하고 새 쿠키를 반환한다", async () => {
       const session = createMockSession();
       session.tokens.accessToken = "new-access-token-456";
       session.refreshToken = "new-refresh-token-456";
@@ -183,6 +240,15 @@ describe("Auth API", () => {
 
       expect(mockAuthService.logout).toHaveBeenCalledTimes(1);
       expect(mockAuthService.logout).toHaveBeenCalledWith(undefined);
+    });
+
+    it("로그아웃 중 서비스 에러가 발생하면 500을 반환한다", async () => {
+      mockAuthService.logout.mockRejectedValue(new Error("logout failed"));
+
+      await request(app.getHttpServer())
+        .post("/v1/auth/logout")
+        .set("Cookie", ["refreshToken=logout-token-123"])
+        .expect(500);
     });
   });
 });
