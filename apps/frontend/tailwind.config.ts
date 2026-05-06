@@ -34,6 +34,7 @@ export default {
 
       fontFamily: {
         sans: ["Pretendard", "sans-serif"],
+        pixel: ["neodgm", "monospace"],
       },
 
       fontSize: {

@@ -14,6 +14,11 @@
   /* 박스 */
   --color-surface-main: #ffffff;
   --color-surface-sub: #f0eded;
+
+  /* 포인트 */
+  --color-point-yellow: #f4d03f;
+  --color-point-mint: #5bc8af;
+  --color-point-red: #e05c5c;
 }
 
 .dark {
@@ -23,6 +28,21 @@
   /* 박스 */
   --color-surface-main: #454545;
   --color-surface-sub: #383838;
+}
+
+@layer utilities {
+  /* 상단 테두리: 빨간 대시 + 흰 간격 */
+  .bg-dash-red-white {
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--color-point-red) 0 18px,
+      #ffffff 18px 36px
+    );
+  }
+
+  .bg-dash-white {
+    background-image: repeating-linear-gradient(90deg, #ffffff 0 18px, transparent 18px 36px);
+  }
 }
 
 @layer base {
@@ -44,4 +64,9 @@
   input {
     font: inherit;
   }
+}
+
+@font-face {
+  font-family: "neodgm";
+  src: url("./assets/fonts/neodgm.woff") format("woff");
 }
