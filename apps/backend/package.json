@@ -6,7 +6,9 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "lint": "biome check src"
+    "lint": "biome check src",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
@@ -36,8 +38,13 @@
     "@nestjs/testing": "^11.1.6",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
     "@types/passport-jwt": "^4.0.1",
+    "@types/supertest": "^7.2.0",
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2"
   }
 }
