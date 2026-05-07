@@ -5,9 +5,58 @@ import type { BattleReadyDto } from "../dto/battle-ready.dto";
 import { BattleStateRepository } from "../repositories/battle-state.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { PromptRepository } from "../repositories/prompt.repository";
+import type { BattleParticipantState } from "../types/battle-participant-state";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
 const WAITING_DURATION_SECONDS = 15 * 60;
+const DEFAULT_PLAYER_LIFE = 3;
+
+type BattleInputValidationInput = {
+  assignedRole?: ConnectionRole | undefined;
+  cursorPosition?: number | undefined;
+  gameId: string;
+  participantId: string;
+  socketId: string;
+  typedText: string;
+};
+
+type BattleConnectionInput = {
+  participantId: string;
+  socketId: string;
+};
+
+type BattleDisconnectionInput = {
+  assignedRole?: ConnectionRole | undefined;
+  gameId?: string | undefined;
+  participantId?: string | undefined;
+  socketId?: string | undefined;
+};
+
+type BattleInputRejectedResult = {
+  code: string;
+  message: string;
+  ok: false;
+};
+
+type BattleInputAcceptedResult = {
+  data: {
+    acceptedLength: number;
+    accuracy: number;
+    expectedLength: number;
+    gameId: string;
+    isEliminated: boolean;
+    isFinished: boolean;
+    isTypo: boolean;
+    life: number;
+    participant: BattleParticipantState;
+    progressPercent: number;
+    typedLength: number;
+    typoIndex: null | number;
+  };
+  ok: true;
+};
+
+export type BattleInputValidationResult = BattleInputAcceptedResult | BattleInputRejectedResult;
 
 @Injectable()
 export class BattleService {
@@ -44,6 +93,22 @@ export class BattleService {
 
   async getCurrentGameState() {
     return this.battleStateRepository.getCurrentGameState();
+  }
+
+  async verifySocketAuthToken(token?: string) {
+    if (!token) {
+      return null;
+    }
+
+    const session = await this.battleStateRepository.getSocketAuthSession(token);
+
+    if (!session?.userId) {
+      return null;
+    }
+
+    await this.battleStateRepository.refreshSocketAuthSession(token);
+
+    return session;
   }
 
   getWaitingRemainingSeconds(currentGameState: CurrentGameState) {
@@ -98,11 +163,38 @@ export class BattleService {
     };
   }
 
-  async registerConnection() {
+  async registerConnection(input: BattleConnectionInput) {
     const currentGameState = await this.ensureCurrentGameState();
+    const activeConnection = await this.battleStateRepository.getActiveConnection(
+      currentGameState.gameId,
+      input.participantId,
+    );
+
+    if (activeConnection) {
+      const refreshedConnection = {
+        ...activeConnection,
+        socketId: input.socketId,
+      };
+
+      await this.battleStateRepository.saveActiveConnection(refreshedConnection);
+
+      return {
+        assignedRole: refreshedConnection.assignedRole,
+        state: this.buildStatePayload(currentGameState),
+        waiting:
+          currentGameState.phase === "waiting" ? this.buildWaitingPayload(currentGameState) : null,
+      };
+    }
+
     const assignedRole: ConnectionRole =
       currentGameState.phase === "in_progress" ? "spectator" : "player";
     const updatedGameState = await this.updateConnectionCount(currentGameState, assignedRole, 1);
+    await this.battleStateRepository.saveActiveConnection({
+      assignedRole,
+      gameId: updatedGameState.gameId,
+      participantId: input.participantId,
+      socketId: input.socketId,
+    });
 
     return {
       assignedRole,
@@ -112,10 +204,8 @@ export class BattleService {
     };
   }
 
-  async unregisterConnection(input: { assignedRole?: ConnectionRole; gameId?: string } = {}) {
-    const { assignedRole, gameId } = input;
-
-    if (!assignedRole) {
+  async unregisterConnection(input: BattleDisconnectionInput = {}) {
+    if (!input.assignedRole) {
       return null;
     }
 
@@ -125,11 +215,95 @@ export class BattleService {
       return null;
     }
 
-    if (gameId && currentGameState.gameId !== gameId) {
+    if (input.gameId && input.gameId !== currentGameState.gameId) {
       return null;
     }
 
+    let assignedRole = input.assignedRole;
+
+    if (input.participantId && input.socketId) {
+      const activeConnection = await this.battleStateRepository.getActiveConnection(
+        currentGameState.gameId,
+        input.participantId,
+      );
+
+      if (!activeConnection || activeConnection.socketId !== input.socketId) {
+        return null;
+      }
+
+      assignedRole = activeConnection.assignedRole;
+      await this.battleStateRepository.deleteActiveConnection(
+        currentGameState.gameId,
+        input.participantId,
+      );
+    }
+
     return this.updateConnectionCount(currentGameState, assignedRole, -1);
+  }
+
+  async validateInput(input: BattleInputValidationInput): Promise<BattleInputValidationResult> {
+    if (input.assignedRole !== "player") {
+      return this.rejectInput("NOT_PLAYER", "플레이어만 입력할 수 있습니다.");
+    }
+
+    const currentGameState = await this.getCurrentGameState();
+
+    if (!currentGameState) {
+      return this.rejectInput("GAME_NOT_FOUND", "진행 중인 게임이 없습니다.");
+    }
+
+    if (currentGameState.gameId !== input.gameId) {
+      return this.rejectInput("GAME_MISMATCH", "현재 게임과 입력 게임이 일치하지 않습니다.");
+    }
+
+    if (currentGameState.phase !== "in_progress") {
+      return this.rejectInput("GAME_NOT_IN_PROGRESS", "게임 진행 중에만 입력할 수 있습니다.");
+    }
+
+    const previousParticipantState = await this.battleStateRepository.getParticipantState(
+      currentGameState.gameId,
+      input.participantId,
+    );
+    const participantState =
+      previousParticipantState ??
+      this.createParticipantState({
+        assignedRole: input.assignedRole,
+        currentGameState,
+        participantId: input.participantId,
+        socketId: input.socketId,
+      });
+
+    if (participantState.status === "eliminated") {
+      return this.rejectInput("PLAYER_ELIMINATED", "탈락한 플레이어는 입력할 수 없습니다.");
+    }
+
+    if (participantState.status === "finished") {
+      return this.buildAcceptedInputResult({
+        currentGameState,
+        isTypo: false,
+        participantState,
+        typedLength: this.getTextLength(input.typedText),
+        typoIndex: null,
+      });
+    }
+
+    const comparison = this.compareTypedText(currentGameState.prompt.content, input.typedText);
+    const nextParticipantState = this.applyInputResult({
+      comparison,
+      currentGameState,
+      participantState,
+      socketId: input.socketId,
+    });
+
+    await this.battleStateRepository.saveParticipantState(nextParticipantState);
+
+    return this.buildAcceptedInputResult({
+      currentGameState,
+      isTypo: comparison.typoIndex !== null,
+      participantState: nextParticipantState,
+      typedLength: comparison.typedLength,
+      typoIndex: comparison.typoIndex,
+    });
   }
 
   async markTenSecondNoticeSent(currentGameState: CurrentGameState) {
@@ -225,6 +399,168 @@ export class BattleService {
     };
 
     return gameState;
+  }
+
+  private applyInputResult(input: {
+    comparison: {
+      acceptedLength: number;
+      expectedLength: number;
+      isComplete: boolean;
+      typedLength: number;
+      typoIndex: null | number;
+    };
+    currentGameState: CurrentGameState;
+    participantState: BattleParticipantState;
+    socketId: string;
+  }) {
+    const now = new Date().toISOString();
+    const shouldApplyPenalty =
+      input.comparison.typoIndex !== null &&
+      input.comparison.typoIndex !== input.participantState.lastPenaltyIndex;
+    const life = shouldApplyPenalty
+      ? Math.max(0, input.participantState.life - 1)
+      : input.participantState.life;
+    const status = life === 0 ? "eliminated" : input.comparison.isComplete ? "finished" : "playing";
+
+    return {
+      ...input.participantState,
+      acceptedLength: input.comparison.acceptedLength,
+      accuracy: this.calculateAccuracy(
+        input.comparison.acceptedLength,
+        input.comparison.typedLength,
+      ),
+      lastInputAt: now,
+      lastPenaltyIndex:
+        input.comparison.typoIndex === null
+          ? input.participantState.lastPenaltyIndex
+          : input.comparison.typoIndex,
+      life,
+      progressPercent: this.calculateProgressPercent(
+        input.comparison.acceptedLength,
+        input.comparison.expectedLength,
+      ),
+      socketId: input.socketId,
+      status,
+      typoCount: shouldApplyPenalty
+        ? input.participantState.typoCount + 1
+        : input.participantState.typoCount,
+    } satisfies BattleParticipantState;
+  }
+
+  private buildAcceptedInputResult(input: {
+    currentGameState: CurrentGameState;
+    isTypo: boolean;
+    participantState: BattleParticipantState;
+    typedLength: number;
+    typoIndex: null | number;
+  }): BattleInputAcceptedResult {
+    return {
+      data: {
+        acceptedLength: input.participantState.acceptedLength,
+        accuracy: input.participantState.accuracy,
+        expectedLength: this.getTextLength(input.currentGameState.prompt.content),
+        gameId: input.currentGameState.gameId,
+        isEliminated: input.participantState.status === "eliminated",
+        isFinished: input.participantState.status === "finished",
+        isTypo: input.isTypo,
+        life: input.participantState.life,
+        participant: input.participantState,
+        progressPercent: input.participantState.progressPercent,
+        typedLength: input.typedLength,
+        typoIndex: input.typoIndex,
+      },
+      ok: true,
+    };
+  }
+
+  private calculateAccuracy(acceptedLength: number, typedLength: number) {
+    if (typedLength === 0) {
+      return 100;
+    }
+
+    return Math.round((acceptedLength / typedLength) * 1000) / 10;
+  }
+
+  private calculateProgressPercent(acceptedLength: number, expectedLength: number) {
+    if (expectedLength === 0) {
+      return 100;
+    }
+
+    return Math.round((acceptedLength / expectedLength) * 10000) / 100;
+  }
+
+  private compareTypedText(expectedText: string, typedText: string) {
+    const expectedCharacters = this.toCharacters(expectedText);
+    const typedCharacters = this.toCharacters(typedText);
+    const comparisonLength = Math.min(expectedCharacters.length, typedCharacters.length);
+
+    for (let index = 0; index < comparisonLength; index += 1) {
+      if (expectedCharacters[index] !== typedCharacters[index]) {
+        return {
+          acceptedLength: index,
+          expectedLength: expectedCharacters.length,
+          isComplete: false,
+          typedLength: typedCharacters.length,
+          typoIndex: index,
+        };
+      }
+    }
+
+    if (typedCharacters.length > expectedCharacters.length) {
+      return {
+        acceptedLength: expectedCharacters.length,
+        expectedLength: expectedCharacters.length,
+        isComplete: false,
+        typedLength: typedCharacters.length,
+        typoIndex: expectedCharacters.length,
+      };
+    }
+
+    return {
+      acceptedLength: typedCharacters.length,
+      expectedLength: expectedCharacters.length,
+      isComplete: typedCharacters.length === expectedCharacters.length,
+      typedLength: typedCharacters.length,
+      typoIndex: null,
+    };
+  }
+
+  private createParticipantState(input: {
+    assignedRole: ConnectionRole;
+    currentGameState: CurrentGameState;
+    participantId: string;
+    socketId: string;
+  }): BattleParticipantState {
+    return {
+      acceptedLength: 0,
+      accuracy: 100,
+      gameId: input.currentGameState.gameId,
+      lastInputAt: null,
+      lastPenaltyIndex: null,
+      life: DEFAULT_PLAYER_LIFE,
+      participantId: input.participantId,
+      progressPercent: 0,
+      role: input.assignedRole,
+      socketId: input.socketId,
+      status: input.assignedRole === "player" ? "playing" : "spectating",
+      typoCount: 0,
+    };
+  }
+
+  private getTextLength(value: string) {
+    return this.toCharacters(value).length;
+  }
+
+  private rejectInput(code: string, message: string): BattleInputRejectedResult {
+    return {
+      code,
+      message,
+      ok: false,
+    };
+  }
+
+  private toCharacters(value: string) {
+    return Array.from(value.normalize("NFC"));
   }
 
   private async updateConnectionCount(

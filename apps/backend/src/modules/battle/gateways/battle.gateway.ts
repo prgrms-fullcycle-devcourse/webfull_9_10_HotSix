@@ -10,6 +10,7 @@ import {
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 import { SOCKET_EVENTS } from "../../../common/constants/socket-events";
+import type { BattleInputDto } from "../dto/battle-input.dto";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleService } from "../services/battle.service";
@@ -36,11 +37,27 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   }
 
   async handleConnection(client: Socket) {
-    const connection = await this.battleService.registerConnection();
+    const session = await this.battleService.verifySocketAuthToken(this.getSocketAuthToken(client));
+
+    if (!session) {
+      client.emit(SOCKET_EVENTS.BATTLE_ERROR, {
+        code: "INVALID_SOCKET_AUTH_TOKEN",
+        message: "소켓 인증 토큰이 유효하지 않습니다.",
+      });
+      client.disconnect(true);
+      return;
+    }
+
+    const connection = await this.battleService.registerConnection({
+      participantId: session.userId,
+      socketId: client.id,
+    });
     const roomName = this.getBattleRoomName(connection.state.gameId);
 
     client.data.assignedRole = connection.assignedRole;
     client.data.gameId = connection.state.gameId;
+    client.data.participantId = session.userId;
+    client.data.userId = session.userId;
 
     client.join(roomName);
     client.emit(SOCKET_EVENTS.BATTLE_WELCOME, this.battleService.getWelcomeMessage());
@@ -56,10 +73,16 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   async handleDisconnect(client: Socket) {
     const assignedRole = this.getAssignedRole(client);
-    const gameId = this.getGameId(client);
+
+    if (!assignedRole) {
+      return;
+    }
+
     const updatedGameState = await this.battleService.unregisterConnection({
       assignedRole,
-      gameId,
+      gameId: this.getGameId(client),
+      participantId: this.getParticipantId(client),
+      socketId: client.id,
     });
 
     if (!updatedGameState) {
@@ -90,6 +113,42 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     this.server
       .to(roomName)
       .emit(SOCKET_EVENTS.BATTLE_STATE, this.battleService.buildStatePayload(updatedGameState));
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.BATTLE_INPUT)
+  async handleInput(@MessageBody() payload: BattleInputDto, @ConnectedSocket() client: Socket) {
+    const result = await this.battleService.validateInput({
+      assignedRole: this.getAssignedRole(client),
+      cursorPosition: payload.cursorPosition,
+      gameId: payload.gameId,
+      participantId: this.getParticipantId(client),
+      socketId: client.id,
+      typedText: payload.typedText,
+    });
+
+    if (result.ok) {
+      const roomName = this.getBattleRoomName(result.data.gameId);
+
+      this.server.to(roomName).emit(SOCKET_EVENTS.BATTLE_PROGRESS, {
+        gameId: result.data.gameId,
+        participant: result.data.participant,
+      });
+
+      if (result.data.isEliminated) {
+        this.server.to(roomName).emit(SOCKET_EVENTS.BATTLE_ELIMINATED, {
+          gameId: result.data.gameId,
+          participantId: result.data.participant.participantId,
+          reason: "typo",
+          socketId: result.data.participant.socketId,
+          userId: result.data.participant.participantId,
+        });
+      }
+    }
+
+    return {
+      event: SOCKET_EVENTS.BATTLE_INPUT_RESULT,
+      data: result,
+    };
   }
 
   @SubscribeMessage(SOCKET_EVENTS.BATTLE_READY)
@@ -127,5 +186,16 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   private getUserIdPayload(client: Socket) {
     return typeof client.data.userId === "string" ? { userId: client.data.userId } : {};
+  }
+
+  private getParticipantId(client: Socket) {
+    return typeof client.data.participantId === "string" ? client.data.participantId : client.id;
+  }
+
+  private getSocketAuthToken(client: Socket) {
+    const auth = client.handshake.auth as Record<string, unknown> | undefined;
+    const token = auth?.token ?? auth?.socketAuthToken;
+
+    return typeof token === "string" ? token : undefined;
   }
 }

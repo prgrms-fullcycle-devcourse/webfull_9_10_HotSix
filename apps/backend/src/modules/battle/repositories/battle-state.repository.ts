@@ -1,6 +1,16 @@
 import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { RedisService } from "../../storage/redis/redis.service";
+import {
+  BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
+  getBattleActiveConnectionKey,
+  getBattleSocketAuthTokenKey,
+} from "../constants/battle-redis-keys";
+import type { BattleParticipantState } from "../types/battle-participant-state";
+import type {
+  BattleActiveConnection,
+  BattleSocketAuthSession,
+} from "../types/battle-socket-session";
 import type { CurrentGameState } from "../types/current-game-state";
 
 const CURRENT_GAME_ID_KEY = "battle:current-game-id";
@@ -57,5 +67,64 @@ export class BattleStateRepository {
     }
 
     return JSON.parse(value) as CurrentGameState;
+  }
+
+  async getActiveConnection(gameId: string, participantId: string) {
+    const value = await this.redisService.instance.get(
+      getBattleActiveConnectionKey(gameId, participantId),
+    );
+
+    if (!value) {
+      return null;
+    }
+
+    return JSON.parse(value) as BattleActiveConnection;
+  }
+
+  async getParticipantState(gameId: string, participantId: string) {
+    const value = await this.redisService.instance.get(
+      `battle:game:${gameId}:participant:${participantId}`,
+    );
+
+    if (!value) {
+      return null;
+    }
+
+    return JSON.parse(value) as BattleParticipantState;
+  }
+
+  async saveParticipantState(participantState: BattleParticipantState) {
+    await this.redisService.instance.set(
+      `battle:game:${participantState.gameId}:participant:${participantState.participantId}`,
+      JSON.stringify(participantState),
+    );
+  }
+
+  async deleteActiveConnection(gameId: string, participantId: string) {
+    await this.redisService.instance.del(getBattleActiveConnectionKey(gameId, participantId));
+  }
+
+  async getSocketAuthSession(token: string) {
+    const value = await this.redisService.instance.get(getBattleSocketAuthTokenKey(token));
+
+    if (!value) {
+      return null;
+    }
+
+    return JSON.parse(value) as BattleSocketAuthSession;
+  }
+
+  async refreshSocketAuthSession(token: string) {
+    await this.redisService.instance.expire(
+      getBattleSocketAuthTokenKey(token),
+      BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
+    );
+  }
+
+  async saveActiveConnection(activeConnection: BattleActiveConnection) {
+    await this.redisService.instance.set(
+      getBattleActiveConnectionKey(activeConnection.gameId, activeConnection.participantId),
+      JSON.stringify(activeConnection),
+    );
   }
 }
