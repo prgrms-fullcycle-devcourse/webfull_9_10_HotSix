@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import GameLobbyPage from "@/pages/GameLobbyPage";
 import GamePage from "@/pages/GamePage";
 import LoginPage from "@/pages/LoginPage";
+import WatchRoomPage from "@/pages/WatchRoomPage";
 import { PATH } from "../constants/route";
 
 export const router = createBrowserRouter([
@@ -17,5 +18,9 @@ export const router = createBrowserRouter([
   {
     path: PATH.GAME,
     element: <GamePage />,
+  },
+  {
+    path: PATH.WATCH_ROOM,
+    element: <WatchRoomPage />,
   },
 ]);
