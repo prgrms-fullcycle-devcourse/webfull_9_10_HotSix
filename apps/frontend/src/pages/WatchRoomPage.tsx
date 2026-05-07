@@ -1,4 +1,4 @@
-import SideBar from "@/components/game/sidebar/SideBar";
+import SideBar from "@/components/game/Sidebar/SideBar";
 
 const WatchRoomPage = () => {
   return <SideBar mode="watch" />;

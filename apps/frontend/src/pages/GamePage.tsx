@@ -1,6 +1,6 @@
 import { GameProgress } from "@/components/game/GameProgress";
 import { RaceTrack } from "@/components/game/RaceTrack";
-import SideBar from "@/components/game/sidebar/SideBar";
+import SideBar from "@/components/game/Sidebar/SideBar";
 
 import TypingGame from "@/components/game/TypingGame/TypingGame";
 
