@@ -1,8 +1,12 @@
 export const SOCKET_EVENTS = {
   BATTLE_COUNTDOWN: "battle:countdown",
   BATTLE_ELIMINATED: "battle:eliminated",
+  BATTLE_ERROR: "battle:error",
   BATTLE_FINISHED: "battle:finished",
+  BATTLE_INPUT: "battle:input",
+  BATTLE_INPUT_RESULT: "battle:input-result",
   BATTLE_JOIN: "battle:join",
+  BATTLE_PROGRESS: "battle:progress",
   BATTLE_READY: "battle:ready",
   BATTLE_READY_CONFIRMED: "battle:ready-confirmed",
   BATTLE_PLAYER_READY: "battle:player-ready",

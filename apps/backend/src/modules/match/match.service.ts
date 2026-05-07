@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import { Injectable } from "@nestjs/common";
+import {
+  BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
+  getBattleSocketAuthTokenKey,
+} from "../battle/constants/battle-redis-keys";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { RedisService } from "../storage/redis/redis.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -21,6 +25,7 @@ export class MatchService {
     const gameStatus = await this.redis.instance.hget("game:current", "status");
     const role = gameStatus === "in_progress" ? "spectator" : "player";
     const status = gameStatus === "in_progress" ? "spectating" : "waiting";
+    const socketAuthToken = `ws_tk_${randomUUID()}`;
 
     await this.redis.instance.sadd("lobby:players", userId);
     await this.redis.instance.hset(
@@ -36,13 +41,22 @@ export class MatchService {
       "joinedAt",
       new Date().toISOString(),
     );
+    await this.redis.instance.set(
+      getBattleSocketAuthTokenKey(socketAuthToken),
+      JSON.stringify({
+        issuedAt: new Date().toISOString(),
+        userId,
+      }),
+      "EX",
+      BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
+    );
 
     return {
       userId,
       role: role,
       status: status,
       socketNamespace: "/battle",
-      socketAuthToken: `ws_tk_${randomUUID()}`,
+      socketAuthToken,
     };
   }
 
