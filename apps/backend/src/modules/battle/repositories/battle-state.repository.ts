@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { RedisService } from "../../storage/redis/redis.service";
+import { RedisService } from "../../../storage/redis/redis.service";
 import {
   BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
   getBattleActiveConnectionKey,
@@ -117,33 +117,34 @@ export class BattleStateRepository {
   async resetPlayerStatus() {
     const userIds = await this.redisService.instance.smembers("lobby:players");
     const gameId = await this.getCurrentGameId();
-    const profiles = await Promise.all(
-      userIds.map(async (userId) => {
-        const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
-        return { userId, role: profile?.role };
-      }),
-    );
+
+    if (!gameId) return;
 
     await Promise.all(
-      profiles
-        .filter((p) => p.role === "player")
-        .map(async (p) => {
-          await this.redisService.instance.hset(
-            `battle:game:${gameId}:participant:${p.userId}`,
-            "progressPercent",
-            "0",
-            "wpm",
-            "0",
-            "life",
-            "3",
-            "accuracy",
-            "100",
-            "isEliminated",
-            "false",
-            "typedLength",
-            "0",
-          );
-        }),
+      userIds.map(async (userId) => {
+        const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
+
+        if (profile?.role !== "player") {
+          return;
+        }
+        const previousState = await this.getParticipantState(gameId, userId);
+
+        const nextState: BattleParticipantState = {
+          acceptedLength: 0,
+          accuracy: 100,
+          gameId,
+          lastInputAt: null,
+          lastPenaltyIndex: null,
+          life: 3,
+          participantId: userId,
+          progressPercent: 0,
+          role: "player",
+          socketId: previousState?.socketId ?? "",
+          status: "playing",
+          typoCount: 0,
+        };
+        await this.saveParticipantState(nextState);
+      }),
     );
     await this.redisService.instance.del("game:scoreboard");
   }

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { v7 as uuidv7 } from "uuid";
+import { createUuidV7 } from "../../../common/uuid";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
@@ -382,7 +382,7 @@ export class BattleService {
   }
 
   private async createWaitingGameState(now: Date) {
-    const gameId = uuidv7();
+    const gameId = createUuidV7();
     const prompt = await this.promptRepository.getRandomPrompt();
     const waitingStartedAt = now.toISOString();
     const waitingEndsAt = new Date(now.getTime() + WAITING_DURATION_SECONDS * 1000).toISOString();

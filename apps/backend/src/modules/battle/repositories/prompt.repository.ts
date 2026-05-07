@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { SupabaseService } from "../../storage/supabase/supabase.service";
+import { SupabaseService } from "../../../storage/supabase/supabase.service";
 import { DEFAULT_PROMPTS } from "../constants/default-prompts";
 import type { PromptSnapshot } from "../types/prompt-snapshot";
 

@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 
-jest.mock("uuid", () => ({
-  v7: jest.fn(() => "uuid-v7"),
+jest.mock("../src/common/uuid", () => ({
+  createUuidV7: jest.fn(() => "uuid-v7"),
 }));
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";

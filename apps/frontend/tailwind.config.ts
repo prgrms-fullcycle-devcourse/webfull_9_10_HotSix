@@ -13,6 +13,9 @@ export default {
         // 텍스트
         text: "var(--color-text)",
 
+        // 테두리
+        border: "var(--color-border)",
+
         // 박스
         surface: {
           main: "var(--color-surface-main)",
@@ -30,6 +33,10 @@ export default {
         state: {
           active: "#4ADE80",
         },
+      },
+
+      boxShadow: {
+        bottom: "0 4px 0 0 var(--color-shadow)",
       },
 
       fontFamily: {

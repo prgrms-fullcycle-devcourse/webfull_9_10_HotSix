@@ -6,11 +6,13 @@ import {
 } from "@nestjs/common";
 
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { RedisService } from "../../storage/redis/redis.service";
+
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { SupabaseService } from "../../storage/supabase/supabase.service";
+
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchService } from "../match/match.service";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { RedisService } from "../storage/redis/redis.service";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { SupabaseService } from "../storage/supabase/supabase.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersService } from "../users/users.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -110,25 +112,22 @@ export class GameStateService {
       `battle:game:${currentGameId}:state`,
     )) as string;
 
-    const gameData = JSON.parse(redisData);
-
-    if (!gameData || Object.keys(gameData).length === 0) {
+    if (!redisData) {
       throw new NotFoundException("진행중인 게임이 없습니다.");
     }
 
-    const participants = await this.matchService.getAllUsers();
-
-    const totalPlayers = participants.filter((p) => p.role === "player").length;
-    const spectatorCount = participants.filter((p) => p.role === "spectator").length;
+    const gameData = JSON.parse(redisData);
+    const players = await this.getCurrentScoreboard();
+    const spectators = await this.getCurrentSpectators();
 
     return {
       game: {
-        id: gameData?.id ?? 0,
-        phase: gameData?.status ?? "wait",
-        startedAt: gameData?.started_at ?? "",
+        id: gameData?.gameId ?? 0,
+        phase: gameData?.phase ?? "wait",
+        startedAt: gameData?.gameStartedAt ?? "",
         minPlayers: gameData?.minPlayers ?? 4,
-        playerCount: totalPlayers,
-        spectatorCount: spectatorCount,
+        playerCount: players.length,
+        spectatorCount: spectators.length,
         waitingStartedAt: gameData?.waitingStartedAt ?? "",
         waitingEndsAt: gameData?.waitingEndsAt ?? "",
         gameStartedAt: gameData?.gameStartedAt ?? "",
@@ -144,22 +143,98 @@ export class GameStateService {
         contentLength: gameData?.prompt.contentLength,
         language: gameData?.prompt.language,
       },
-      participants: participants,
+      participants: [
+        ...players,
+        ...spectators.map((p) => ({
+          userId: p.userId,
+          nickname: p.nickname,
+          avatarUrl: p.avatarUrl,
+          status: "spectating",
+          role: "spectator" as const,
+          joinedAt: p.joinedAt,
+          progressPercent: 0,
+          rank: 0,
+          wpm: 0,
+          life: 0,
+          accuracy: 0,
+          isEliminated: false,
+          acceptedLength: 0,
+        })),
+      ],
     };
   }
 
   async getCurrentSpectators() {
     const spectators = (await this.matchService.getAllUsers())
       .filter((p) => p.role === "spectator")
-      .map((p) => ({ userId: p.userId, nickname: p.nickname, avatarUrl: p.avatarUrl }));
+      .map((p) => ({
+        userId: p.userId,
+        nickname: p.nickname,
+        avatarUrl: p.avatarUrl,
+        joinedAt: p.joinedAt,
+      }));
 
     return spectators;
   }
 
   async getCurrentScoreboard() {
-    const players = (await this.matchService.getAllUsers()).filter((p) => p.role === "player");
+    const currentGameId = await this.redisService.instance.get("battle:current-game-id");
+    const rows = await this.redisService.instance.zrevrange(
+      `battle:game:${currentGameId}:scoreboard`,
+      0,
+      -1,
+      "WITHSCORES",
+    );
 
-    return players;
+    const rankedUsers = [];
+
+    for (let i = 0; i < rows.length; i += 2) {
+      const userId = rows[i];
+      const score = rows[i + 1];
+
+      if (!userId) {
+        continue;
+      }
+
+      rankedUsers.push({
+        userId,
+        score: Number(score ?? 0),
+        rank: i / 2 + 1,
+      });
+    }
+
+    const players = await Promise.all(
+      rankedUsers.map(async ({ userId, rank }) => {
+        const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
+        const rawParticipant = await this.redisService.instance.get(
+          `battle:game:${currentGameId}:participant:${userId}`,
+        );
+
+        if (!rawParticipant) return null;
+
+        const participant = JSON.parse(rawParticipant);
+
+        if (participant.role !== "player") return null;
+
+        return {
+          userId,
+          nickname: profile.nickname,
+          avatarUrl: profile.avatarUrl,
+          status: participant.status,
+          role: participant.role,
+          joinedAt: profile.joinedAt,
+          progressPercent: participant.progressPercent,
+          rank,
+          wpm: participant.wpm ?? 0,
+          life: participant.life,
+          accuracy: participant.accuracy,
+          isEliminated: participant.status === "eliminated",
+          acceptedLength: participant.acceptedLength,
+        };
+      }),
+    );
+
+    return players.filter((p): p is NonNullable<typeof p> => p !== null);
   }
 
   async getLatestGameResult() {

@@ -70,7 +70,7 @@ export class AuthController {
     response.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
       httpOnly: true,
       secure: process.env.COOKIE_SECURE === "true",
-      sameSite: "lax",
+      sameSite: process.env.COOKIE_SECURE === "true" ? "none" : "lax",
       path: "/",
       domain: process.env.COOKIE_DOMAIN || undefined,
       expires: expiresAt,
@@ -81,7 +81,7 @@ export class AuthController {
     response.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
       secure: process.env.COOKIE_SECURE === "true",
-      sameSite: "lax",
+      sameSite: process.env.COOKIE_SECURE === "true" ? "none" : "lax",
       path: "/",
       domain: process.env.COOKIE_DOMAIN || undefined,
     });
