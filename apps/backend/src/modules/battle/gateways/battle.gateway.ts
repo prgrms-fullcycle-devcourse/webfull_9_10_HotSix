@@ -116,14 +116,18 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   }
 
   @SubscribeMessage(SOCKET_EVENTS.BATTLE_INPUT)
-  async handleInput(@MessageBody() payload: BattleInputDto, @ConnectedSocket() client: Socket) {
+  async handleInput(
+    @MessageBody() payload: Partial<BattleInputDto> | undefined,
+    @ConnectedSocket() client: Socket,
+  ) {
     const result = await this.battleService.validateInput({
       assignedRole: this.getAssignedRole(client),
-      cursorPosition: payload.cursorPosition,
-      gameId: payload.gameId,
+      cursorPosition: payload?.cursorPosition,
+      gameId: this.getGameId(client),
+      inputText: payload?.inputText,
       participantId: this.getParticipantId(client),
       socketId: client.id,
-      typedText: payload.typedText,
+      typedChars: payload?.typedChars,
     });
 
     if (result.ok) {

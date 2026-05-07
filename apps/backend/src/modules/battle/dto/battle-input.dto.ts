@@ -1,5 +1,5 @@
 export type BattleInputDto = {
-  cursorPosition?: number | undefined;
-  gameId: string;
-  typedText: string;
+  cursorPosition: number;
+  inputText: string;
+  typedChars: number;
 };

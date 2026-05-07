@@ -787,17 +787,18 @@ x-websocket:
               type: integer
               example: 104
       - event: battle:input
-        description: 사용자가 새로 입력한 전체 문자열 또는 마지막 검증 지점까지의 문자열
+        description: 사용자의 현재 입력값을 서버에서 검증합니다. 게임과 사용자는 소켓 세션에서 식별합니다.
         payload:
           type: object
-          required: [gameId, typedText]
+          required: [inputText, typedChars, cursorPosition]
           properties:
-            gameId:
-              type: integer
-              example: 104
-            typedText:
+            inputText:
               type: string
               example: 빠른 갈색 여우가
+            typedChars:
+              type: integer
+              minimum: 0
+              example: 8
             cursorPosition:
               type: integer
               minimum: 0

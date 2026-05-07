@@ -94,6 +94,7 @@ function createSocket(overrides: { assignedRole?: "player" | "spectator" } = {})
   return {
     data: {
       assignedRole: overrides.assignedRole ?? "player",
+      gameId: "game-1",
       participantId: "user-1",
     },
     id: "socket-1",
@@ -106,10 +107,12 @@ describe("BattleService input validation", () => {
 
     const result = await service.validateInput({
       assignedRole: "player",
+      cursorPosition: 3,
       gameId: "game-1",
+      inputText: "hel",
       participantId: "socket-1",
       socketId: "socket-1",
-      typedText: "hel",
+      typedChars: 3,
     });
 
     expect(result.ok).toBe(true);
@@ -140,10 +143,12 @@ describe("BattleService input validation", () => {
 
     const result = await service.validateInput({
       assignedRole: "player",
+      cursorPosition: 3,
       gameId: "game-1",
+      inputText: "hez",
       participantId: "socket-1",
       socketId: "socket-1",
-      typedText: "hez",
+      typedChars: 3,
     });
 
     expect(result.ok).toBe(true);
@@ -175,10 +180,12 @@ describe("BattleService input validation", () => {
 
     const result = await service.validateInput({
       assignedRole: "player",
+      cursorPosition: 3,
       gameId: "game-1",
+      inputText: "hez",
       participantId: "socket-1",
       socketId: "socket-1",
-      typedText: "hez",
+      typedChars: 3,
     });
 
     expect(result.ok).toBe(true);
@@ -202,10 +209,12 @@ describe("BattleService input validation", () => {
 
     const result = await service.validateInput({
       assignedRole: "player",
+      cursorPosition: 3,
       gameId: "game-1",
+      inputText: "hez",
       participantId: "socket-1",
       socketId: "socket-1",
-      typedText: "hez",
+      typedChars: 3,
     });
 
     expect(result.ok).toBe(true);
@@ -224,10 +233,12 @@ describe("BattleService input validation", () => {
 
     const result = await service.validateInput({
       assignedRole: "player",
+      cursorPosition: 5,
       gameId: "game-1",
+      inputText: "hello",
       participantId: "socket-1",
       socketId: "socket-1",
-      typedText: "hello",
+      typedChars: 5,
     });
 
     expect(result.ok).toBe(true);
@@ -249,16 +260,39 @@ describe("BattleService input validation", () => {
 
     const result = await service.validateInput({
       assignedRole: "spectator",
+      cursorPosition: 5,
       gameId: "game-1",
+      inputText: "hello",
       participantId: "socket-1",
       socketId: "socket-1",
-      typedText: "hello",
+      typedChars: 5,
     });
 
     expect(result).toMatchObject({
       code: "NOT_PLAYER",
       ok: false,
     });
+    expect(saveParticipantState).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed input payloads before updating progress", async () => {
+    const { repository, saveParticipantState, service } = createService({});
+
+    const result = await service.validateInput({
+      assignedRole: "player",
+      cursorPosition: 4,
+      gameId: "game-1",
+      inputText: "hel",
+      participantId: "socket-1",
+      socketId: "socket-1",
+      typedChars: 4,
+    });
+
+    expect(result).toMatchObject({
+      code: "INVALID_INPUT_PAYLOAD",
+      ok: false,
+    });
+    expect(repository.getCurrentGameState).not.toHaveBeenCalled();
     expect(saveParticipantState).not.toHaveBeenCalled();
   });
 
@@ -312,19 +346,21 @@ describe("BattleGateway input handling", () => {
 
     const result = await gateway.handleInput(
       {
-        gameId: "game-1",
-        typedText: "hel",
+        cursorPosition: 3,
+        inputText: "hel",
+        typedChars: 3,
       },
       createSocket(),
     );
 
     expect(validateInput).toHaveBeenCalledWith({
       assignedRole: "player",
-      cursorPosition: undefined,
+      cursorPosition: 3,
       gameId: "game-1",
+      inputText: "hel",
       participantId: "user-1",
       socketId: "socket-1",
-      typedText: "hel",
+      typedChars: 3,
     });
     expect(to).toHaveBeenCalledWith("battle:game-1");
     expect(emit).toHaveBeenCalledWith(SOCKET_EVENTS.BATTLE_PROGRESS, {
@@ -358,8 +394,9 @@ describe("BattleGateway input handling", () => {
 
     await gateway.handleInput(
       {
-        gameId: "game-1",
-        typedText: "hez",
+        cursorPosition: 3,
+        inputText: "hez",
+        typedChars: 3,
       },
       createSocket(),
     );

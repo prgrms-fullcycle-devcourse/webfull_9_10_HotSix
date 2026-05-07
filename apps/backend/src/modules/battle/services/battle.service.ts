@@ -13,11 +13,12 @@ const DEFAULT_PLAYER_LIFE = 3;
 
 type BattleInputValidationInput = {
   assignedRole?: ConnectionRole | undefined;
-  cursorPosition?: number | undefined;
-  gameId: string;
+  cursorPosition?: unknown;
+  gameId?: string | undefined;
+  inputText?: unknown;
   participantId: string;
   socketId: string;
-  typedText: string;
+  typedChars?: unknown;
 };
 
 type BattleConnectionInput = {
@@ -57,6 +58,11 @@ type BattleInputAcceptedResult = {
 };
 
 export type BattleInputValidationResult = BattleInputAcceptedResult | BattleInputRejectedResult;
+
+type ValidatedBattleInputPayload = {
+  inputText: string;
+  typedLength: number;
+};
 
 @Injectable()
 export class BattleService {
@@ -246,10 +252,20 @@ export class BattleService {
       return this.rejectInput("NOT_PLAYER", "플레이어만 입력할 수 있습니다.");
     }
 
+    const validatedPayload = this.validateInputPayload(input);
+
+    if (!validatedPayload.ok) {
+      return validatedPayload;
+    }
+
     const currentGameState = await this.getCurrentGameState();
 
     if (!currentGameState) {
       return this.rejectInput("GAME_NOT_FOUND", "진행 중인 게임이 없습니다.");
+    }
+
+    if (!input.gameId) {
+      return this.rejectInput("SOCKET_GAME_NOT_FOUND", "소켓에 연결된 게임 정보가 없습니다.");
     }
 
     if (currentGameState.gameId !== input.gameId) {
@@ -282,12 +298,15 @@ export class BattleService {
         currentGameState,
         isTypo: false,
         participantState,
-        typedLength: this.getTextLength(input.typedText),
+        typedLength: validatedPayload.typedLength,
         typoIndex: null,
       });
     }
 
-    const comparison = this.compareTypedText(currentGameState.prompt.content, input.typedText);
+    const comparison = this.compareTypedText(
+      currentGameState.prompt.content,
+      validatedPayload.inputText,
+    );
     const nextParticipantState = this.applyInputResult({
       comparison,
       currentGameState,
@@ -487,6 +506,34 @@ export class BattleService {
     }
 
     return Math.round((acceptedLength / expectedLength) * 10000) / 100;
+  }
+
+  private validateInputPayload(
+    input: BattleInputValidationInput,
+  ): BattleInputRejectedResult | ({ ok: true } & ValidatedBattleInputPayload) {
+    if (
+      typeof input.inputText !== "string" ||
+      !this.isNonNegativeSafeInteger(input.cursorPosition) ||
+      !this.isNonNegativeSafeInteger(input.typedChars)
+    ) {
+      return this.rejectInput("INVALID_INPUT_PAYLOAD", "입력 payload가 올바르지 않습니다.");
+    }
+
+    const typedLength = this.getTextLength(input.inputText);
+
+    if (input.typedChars !== typedLength || input.cursorPosition > typedLength) {
+      return this.rejectInput("INVALID_INPUT_PAYLOAD", "입력 payload가 올바르지 않습니다.");
+    }
+
+    return {
+      inputText: input.inputText,
+      ok: true,
+      typedLength,
+    };
+  }
+
+  private isNonNegativeSafeInteger(value: unknown): value is number {
+    return Number.isSafeInteger(value) && Number(value) >= 0;
   }
 
   private compareTypedText(expectedText: string, typedText: string) {
