@@ -12,7 +12,6 @@ import {
   getBattleSocketAuthTokenKey,
 } from "../src/modules/battle/constants/battle-redis-keys";
 
-import type { BattleService } from "../src/modules/battle/services/battle.service";
 import { MatchService } from "../src/modules/match/match.service";
 import type { RedisService } from "../src/storage/redis/redis.service";
 import type { UsersRepository } from "../src/modules/users/users.repository";
@@ -37,8 +36,7 @@ describe("MatchService", () => {
         set,
       },
     } as unknown as RedisService;
-    const battleService = {} as unknown as BattleService;
-    const service = new MatchService(redisService, usersRepository, battleService);
+    const service = new MatchService(redisService, usersRepository);
 
     const result = await service.joinGame("user-1");
 

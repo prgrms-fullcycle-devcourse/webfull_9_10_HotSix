@@ -301,6 +301,7 @@ export class BattleService {
     });
 
     await this.battleStateRepository.saveParticipantState(nextParticipantState);
+    await this.battleStateRepository.updateScoreboard(nextParticipantState);
 
     return this.buildAcceptedInputResult({
       currentGameState,
@@ -336,6 +337,7 @@ export class BattleService {
     };
 
     await this.battleStateRepository.saveCurrentGameState(startedGameState);
+    await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
 
     return startedGameState;
   }
@@ -353,6 +355,7 @@ export class BattleService {
     };
 
     await this.battleStateRepository.saveCurrentGameState(restartedWaitingGameState);
+    await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
 
     return restartedWaitingGameState;
   }
@@ -440,6 +443,7 @@ export class BattleService {
           ? input.participantState.lastPenaltyIndex
           : input.comparison.typoIndex,
       life,
+      wpm: this.calculateWpm(input.comparison.acceptedLength, input.currentGameState.gameStartedAt),
       progressPercent: this.calculateProgressPercent(
         input.comparison.acceptedLength,
         input.comparison.expectedLength,
@@ -544,12 +548,27 @@ export class BattleService {
       lastPenaltyIndex: null,
       life: DEFAULT_PLAYER_LIFE,
       participantId: input.participantId,
+      wpm: 0,
       progressPercent: 0,
       role: input.assignedRole,
       socketId: input.socketId,
       status: input.assignedRole === "player" ? "playing" : "spectating",
       typoCount: 0,
     };
+  }
+
+  private calculateWpm(acceptedLength: number, gameStartedAt: null | string) {
+    if (!gameStartedAt || acceptedLength === 0) {
+      return 0;
+    }
+
+    const elapsedMinutes = (Date.now() - new Date(gameStartedAt).getTime()) / 1000 / 60;
+
+    if (elapsedMinutes <= 0) {
+      return 0;
+    }
+
+    return Math.round((acceptedLength / 5 / elapsedMinutes) * 10) / 10;
   }
 
   private getTextLength(value: string) {

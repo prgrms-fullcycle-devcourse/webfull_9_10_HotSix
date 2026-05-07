@@ -114,11 +114,11 @@ export class BattleStateRepository {
     return JSON.parse(value) as BattleSocketAuthSession;
   }
 
-  async resetPlayerStatus() {
-    const userIds = await this.redisService.instance.smembers("lobby:players");
-    const gameId = await this.getCurrentGameId();
-
+  async resetPlayerStatus(gameId: string) {
     if (!gameId) return;
+    const userIds = await this.redisService.instance.smembers("lobby:players");
+
+    await this.redisService.instance.del(`battle:game:${gameId}:scoreboard`);
 
     await Promise.all(
       userIds.map(async (userId) => {
@@ -139,23 +139,32 @@ export class BattleStateRepository {
           participantId: userId,
           progressPercent: 0,
           role: "player",
-          socketId: previousState?.socketId ?? "",
+          wpm: 0,
+          socketId: previousState?.socketId ?? profile.socketId ?? "",
           status: "playing",
           typoCount: 0,
         };
         await this.saveParticipantState(nextState);
+        await this.redisService.instance.zadd(`battle:game:${gameId}:scoreboard`, 0, userId);
       }),
     );
-    await this.redisService.instance.del("game:scoreboard");
   }
 
   async handleDisconnectUser(userId: string) {
     const gameId = await this.getCurrentGameId();
-    await this.redisService.instance.hset(
-      `battle:game:${gameId}:participant:${userId}`,
-      "isEliminated",
-      "true",
-    );
+
+    if (!gameId) return;
+
+    const participantState = await this.getParticipantState(gameId, userId);
+
+    if (!participantState) return;
+
+    await this.saveParticipantState({
+      ...participantState,
+      life: 0,
+      status: "eliminated",
+      lastInputAt: new Date().toISOString(),
+    });
   }
 
   async refreshSocketAuthSession(token: string) {
@@ -169,6 +178,17 @@ export class BattleStateRepository {
     await this.redisService.instance.set(
       getBattleActiveConnectionKey(activeConnection.gameId, activeConnection.participantId),
       JSON.stringify(activeConnection),
+    );
+  }
+  async updateScoreboard(participantState: BattleParticipantState) {
+    if (participantState.role !== "player") {
+      return;
+    }
+
+    await this.redisService.instance.zadd(
+      `battle:game:${participantState.gameId}:scoreboard`,
+      participantState.acceptedLength,
+      participantState.participantId,
     );
   }
 }

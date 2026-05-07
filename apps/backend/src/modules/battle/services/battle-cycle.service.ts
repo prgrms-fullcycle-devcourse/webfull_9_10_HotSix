@@ -94,7 +94,6 @@ export class BattleCycleService implements OnModuleDestroy, OnModuleInit {
       }
 
       const startedGameState = await this.battleService.startCurrentGame(currentGameState);
-      await this.battleStateRepository.resetPlayerStatus();
 
       this.logger.log(`Started game ${startedGameState.gameId}`);
       this.battleBroadcastService.emitToAll(
