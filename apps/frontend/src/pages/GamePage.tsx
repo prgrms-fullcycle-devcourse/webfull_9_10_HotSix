@@ -1,13 +1,14 @@
 import { GameProgress } from "@/components/game/GameProgress";
 import { RaceTrack } from "@/components/game/RaceTrack";
-import Sidebar from "@/components/game/sidebar/SideBar";
+import SideBar from "@/components/game/sidebar/SideBar";
+
 import TypingGame from "@/components/game/TypingGame/TypingGame";
 
 const GamePage = () => {
   return (
     <div className="flex h-dvh w-full overflow-hidden">
       <div className="shrink-0">
-        <Sidebar mode="game" />
+        <SideBar mode="game" />
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-gray-100">
