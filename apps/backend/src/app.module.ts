@@ -1,8 +1,8 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { DocsModule } from "./docs/docs.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BattleModule } from "./modules/battle/battle.module";
-import { DocsModule } from "./modules/docs/docs.module";
 import { GameStateModule } from "./modules/game-state/game-state.module";
 import { GamesModule } from "./modules/games/games.module";
 import { HealthModule } from "./modules/health/health.module";
