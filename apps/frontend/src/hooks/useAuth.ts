@@ -1,6 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "@/api/auth.api";
+import { loginUser, userDashboard, userInfo } from "@/api/auth.api";
 import { PATH } from "@/constants/route";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -20,5 +20,19 @@ export const useLogin = () => {
       });
       navigate(PATH.GAME_LOBBY);
     },
+  });
+};
+
+export const useUserInfo = () => {
+  return useQuery({
+    queryKey: ["user-info"],
+    queryFn: userInfo,
+  });
+};
+
+export const useUserDashboard = () => {
+  return useQuery({
+    queryKey: ["user-info", "user-dashboard"],
+    queryFn: userDashboard,
   });
 };
