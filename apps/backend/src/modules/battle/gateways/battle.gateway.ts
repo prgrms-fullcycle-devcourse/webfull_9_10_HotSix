@@ -98,7 +98,7 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         ...this.getUserIdPayload(client),
       });
 
-      this.battleService.handleDisconnectUser(this.getParticipantId(client));
+      this.battleService.disconnectUser(this.getParticipantId(client));
     }
 
     if (updatedGameState.phase === "waiting") {
