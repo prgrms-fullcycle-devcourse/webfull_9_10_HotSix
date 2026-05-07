@@ -50,6 +50,7 @@ function createParticipantState(
     lastInputAt: null,
     lastPenaltyIndex: null,
     life: 3,
+    wpm: 0,
     participantId: "socket-1",
     progressPercent: 0,
     role: "player",
@@ -66,10 +67,12 @@ function createService(input: {
   saveParticipantState?: jest.Mock;
 }) {
   const saveParticipantState = input.saveParticipantState ?? jest.fn();
+  const updateScoreboard = jest.fn().mockResolvedValue(undefined);
   const repository = {
     getCurrentGameState: jest.fn().mockResolvedValue(input.currentGameState ?? createGameState()),
     getParticipantState: jest.fn().mockResolvedValue(input.participantState ?? null),
     saveParticipantState,
+    updateScoreboard,
   } as unknown as BattleStateRepository;
 
   return {
