@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import HeartStatus from "@/components/game/HeartStatus";
 import { FONT_SIZE_CLASS } from "@/constants/game/font";
+import { useTypingSocket } from "@/hooks/useTypingSocket";
 import type { FontSize, MatchState } from "@/types";
 
 function getMatchState(
@@ -18,6 +19,7 @@ function getMatchState(
   const disassembledTarget = hangul.disassemble(target).join("");
 
   if (input === target) return "correct";
+
   if (disassembledTarget.startsWith(disassembledInput) && isLastIndex) {
     return "composing";
   }
@@ -49,10 +51,18 @@ const TypingGame = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cursorRef = useRef<HTMLSpanElement | null>(null);
 
+  const startedAtRef = useRef(Date.now());
+
   const [lineIndex, setLineIndex] = useState(0);
   const [currentInput, setCurrentInput] = useState("");
   const [life, setLife] = useState(3);
   const [fontSize] = useState<FontSize>("medium");
+  const [isComposing, setIsComposing] = useState(false);
+
+  const { emitTypingProgress } = useTypingSocket();
+
+  const roomId = "room-1";
+  const playerId = "player-1";
 
   const visibleLines = lines.slice(lineIndex, lineIndex + 4);
   const currentLine = lines[lineIndex] ?? "";
@@ -60,6 +70,7 @@ const TypingGame = () => {
 
   useEffect(() => {
     const handleGlobalClick = () => inputRef.current?.focus();
+
     window.addEventListener("click", handleGlobalClick);
 
     return () => {
@@ -73,6 +84,7 @@ const TypingGame = () => {
 
     const cursor = cursorRef.current.getBoundingClientRect();
     const container = containerRef.current.getBoundingClientRect();
+
     const threshold = container.top + container.height * 0.5;
 
     if (cursor.top > threshold) {
@@ -82,6 +94,26 @@ const TypingGame = () => {
       });
     }
   }, [currentInput.length]);
+
+  const emitCurrentProgress = (inputText: string) => {
+    emitTypingProgress({
+      roomId,
+      playerId,
+      targetText: currentLine,
+      inputText,
+      startedAt: startedAtRef.current,
+    });
+  };
+
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsComposing(false);
+
+    emitCurrentProgress(e.currentTarget.value);
+  };
 
   const moveNextLine = () => {
     setLineIndex((prev) => Math.min(prev + 1, lines.length));
@@ -97,10 +129,12 @@ const TypingGame = () => {
     }
 
     const lastCharIndex = newValue.length - 1;
+
     const isLastIndex = lastCharIndex === currentInput.length;
 
     if (newValue.length > currentInput.length) {
       const currentChar = newValue[lastCharIndex];
+
       const targetChar = currentLine[lastCharIndex];
 
       if (getMatchState(currentChar, targetChar, isLastIndex) === "wrong") {
@@ -109,12 +143,17 @@ const TypingGame = () => {
     }
 
     setCurrentInput(newValue);
+
+    if (!isComposing) {
+      emitCurrentProgress(newValue);
+    }
   };
 
   return (
     <div className="flex min-w-0 w-full max-w-[916px] flex-col gap-4 border-[4px] border-black bg-[#454545] p-4 shadow-[8px_8px_0px_#000] sm:p-6">
       <div className="flex justify-between items-center">
         <div className="text-white text-xl">⌨️</div>
+
         <HeartStatus life={life} />
       </div>
 
@@ -126,6 +165,7 @@ const TypingGame = () => {
           <div className="whitespace-pre-wrap break-keep leading-[2.5] text-[24px]">
             {visibleLines.map((line, visibleLineIndex) => {
               const isCurrentLine = visibleLineIndex === 0;
+
               const lineKey = `line-${lineIndex + visibleLineIndex}`;
 
               return (
@@ -183,6 +223,8 @@ const TypingGame = () => {
       <textarea
         value={currentInput}
         onChange={handleInputChange}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         ref={inputRef}
         placeholder={isGameOver ? "Game Over" : "Start typing here..."}
         disabled={isGameOver}
