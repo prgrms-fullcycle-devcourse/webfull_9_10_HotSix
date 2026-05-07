@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { SupabaseService } from "../storage/supabase/supabase.service";
+import { SupabaseService } from "../../storage/supabase/supabase.service";
 
 type RefreshTokenRow = {
   id: string;

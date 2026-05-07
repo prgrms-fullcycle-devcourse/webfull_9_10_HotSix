@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { RedisService } from "../../storage/redis/redis.service";
+import { RedisService } from "../../../storage/redis/redis.service";
 import {
   BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
   getBattleActiveConnectionKey,

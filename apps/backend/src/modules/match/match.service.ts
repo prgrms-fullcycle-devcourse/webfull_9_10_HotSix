@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { Injectable } from "@nestjs/common";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { RedisService } from "../../storage/redis/redis.service";
 import {
   BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
   getBattleSocketAuthTokenKey,
 } from "../battle/constants/battle-redis-keys";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { RedisService } from "../storage/redis/redis.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersRepository } from "../users/users.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.

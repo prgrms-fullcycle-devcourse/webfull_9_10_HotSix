@@ -7,8 +7,8 @@ import { GameStateModule } from "./modules/game-state/game-state.module";
 import { GamesModule } from "./modules/games/games.module";
 import { HealthModule } from "./modules/health/health.module";
 import { MatchModule } from "./modules/match/match.module";
-import { StorageModule } from "./modules/storage/storage.module";
 import { UsersModule } from "./modules/users/users.module";
+import { StorageModule } from "./storage/storage.module";
 
 @Module({
   imports: [
