@@ -192,6 +192,7 @@ describe("BattleGateway", () => {
     const battleService = {
       buildStatePayload,
       unregisterConnection,
+      handleDisconnectUser: jest.fn(),
     } as unknown as BattleService;
     const gateway = new BattleGateway(battleService, {} as BattleBroadcastService);
     const { emit, server } = createServer();

@@ -242,7 +242,7 @@ export class BattleService {
     return this.updateConnectionCount(currentGameState, assignedRole, -1);
   }
 
-  async disconnectUser(userId: string) {
+  async handleDisconnectUser(userId: string) {
     await this.battleStateRepository.handleDisconnectUser(userId);
   }
 
