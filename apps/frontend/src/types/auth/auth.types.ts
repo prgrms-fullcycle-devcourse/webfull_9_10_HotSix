@@ -16,3 +16,16 @@ export interface AuthResponse {
   user: User;
   tokens: Token;
 }
+
+export interface UserDashboard {
+  userId: string;
+  nickname: string;
+  joinedAt: string;
+  totalGames: number;
+  wins: number;
+  averageRank: number;
+  recentRank: number;
+  bestRank: number;
+  averageWpm: number;
+  averageAccuracy: number;
+}

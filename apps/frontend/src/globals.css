@@ -15,6 +15,10 @@
   --color-surface-main: #ffffff;
   --color-surface-sub: #f0eded;
 
+  /* 테두리 / 그림자 */
+  --color-border: #000000;
+  --color-shadow: #000000;
+
   /* 포인트 */
   --color-point-yellow: #f4d03f;
   --color-point-mint: #5bc8af;
