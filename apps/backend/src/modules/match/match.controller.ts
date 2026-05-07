@@ -1,6 +1,6 @@
 import { Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { AuthUserId } from "../../common/auth-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { AuthUserId } from "../common/auth-user.decorator";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchService } from "./match.service";
 
