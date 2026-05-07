@@ -8,7 +8,8 @@ import { PromptRepository } from "../repositories/prompt.repository";
 import type { BattleParticipantState } from "../types/battle-participant-state";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
-const WAITING_DURATION_SECONDS = 15 * 60;
+// const WAITING_DURATION_SECONDS = 15 * 60;
+const WAITING_DURATION_SECONDS = 15;
 const DEFAULT_PLAYER_LIFE = 3;
 
 type BattleInputValidationInput = {
@@ -241,6 +242,10 @@ export class BattleService {
     return this.updateConnectionCount(currentGameState, assignedRole, -1);
   }
 
+  async handleDisconnectUser(userId: string) {
+    await this.battleStateRepository.handleDisconnectUser(userId);
+  }
+
   async validateInput(input: BattleInputValidationInput): Promise<BattleInputValidationResult> {
     if (input.assignedRole !== "player") {
       return this.rejectInput("NOT_PLAYER", "플레이어만 입력할 수 있습니다.");
@@ -390,7 +395,7 @@ export class BattleService {
       hasTenSecondNoticeSent: false,
       phase: "waiting" as const,
       playerCount: 0,
-      minPlayers: 4,
+      minPlayers: 1, // default = 4
       prompt,
       spectatorCount: 0,
       updatedAt: waitingStartedAt,

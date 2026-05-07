@@ -114,6 +114,49 @@ export class BattleStateRepository {
     return JSON.parse(value) as BattleSocketAuthSession;
   }
 
+  async resetPlayerStatus() {
+    const userIds = await this.redisService.instance.smembers("lobby:players");
+    const gameId = await this.getCurrentGameId();
+    const profiles = await Promise.all(
+      userIds.map(async (userId) => {
+        const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
+        return { userId, role: profile?.role };
+      }),
+    );
+
+    await Promise.all(
+      profiles
+        .filter((p) => p.role === "player")
+        .map(async (p) => {
+          await this.redisService.instance.hset(
+            `battle:game:${gameId}:participant:${p.userId}`,
+            "progressPercent",
+            "0",
+            "wpm",
+            "0",
+            "life",
+            "3",
+            "accuracy",
+            "100",
+            "isEliminated",
+            "false",
+            "typedLength",
+            "0",
+          );
+        }),
+    );
+    await this.redisService.instance.del("game:scoreboard");
+  }
+
+  async handleDisconnectUser(userId: string) {
+    const gameId = await this.getCurrentGameId();
+    await this.redisService.instance.hset(
+      `battle:game:${gameId}:participant:${userId}`,
+      "isEliminated",
+      "true",
+    );
+  }
+
   async refreshSocketAuthSession(token: string) {
     await this.redisService.instance.expire(
       getBattleSocketAuthTokenKey(token),

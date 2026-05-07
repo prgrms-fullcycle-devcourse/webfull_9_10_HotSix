@@ -38,7 +38,6 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   async handleConnection(client: Socket) {
     const session = await this.battleService.verifySocketAuthToken(this.getSocketAuthToken(client));
-
     if (!session) {
       client.emit(SOCKET_EVENTS.BATTLE_ERROR, {
         code: "INVALID_SOCKET_AUTH_TOKEN",
@@ -98,6 +97,8 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         socketId: client.id,
         ...this.getUserIdPayload(client),
       });
+
+      this.battleService.handleDisconnectUser(this.getParticipantId(client));
     }
 
     if (updatedGameState.phase === "waiting") {
@@ -194,7 +195,9 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   private getSocketAuthToken(client: Socket) {
     const auth = client.handshake.auth as Record<string, unknown> | undefined;
-    const token = auth?.token ?? auth?.socketAuthToken;
+    const query = client.handshake.query as Record<string, unknown> | undefined;
+    const rawToken = auth?.token ?? auth?.socketAuthToken ?? query?.token;
+    const token = Array.isArray(rawToken) ? rawToken[0] : rawToken;
 
     return typeof token === "string" ? token : undefined;
   }

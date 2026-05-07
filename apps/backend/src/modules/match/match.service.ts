@@ -1,6 +1,7 @@
+// biome-ignore assist/source/organizeImports: <explanation>
 import { randomUUID } from "node:crypto";
 
-import { Injectable } from "@nestjs/common";
+import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import {
   BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
   getBattleSocketAuthTokenKey,
@@ -11,12 +12,15 @@ import { RedisService } from "../storage/redis/redis.service";
 import { UsersRepository } from "../users/users.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchPlayerDto } from "./dto/match-player.dto";
+import { BattleService } from "../battle/services/battle.service";
 
 @Injectable()
 export class MatchService {
   constructor(
     private readonly redis: RedisService,
     private readonly usersRepository: UsersRepository,
+    @Inject(forwardRef(() => BattleService))
+    private readonly battleStateRepository: BattleService,
   ) {}
 
   async joinGame(userId: string) {
@@ -62,13 +66,19 @@ export class MatchService {
 
   async getAllUsers(): Promise<MatchPlayerDto[]> {
     const userIds = await this.redis.instance.smembers("lobby:players");
+    const gameState = await this.battleStateRepository.getCurrentGameState();
 
     if (userIds.length === 0) return [];
 
     const players = await Promise.all(
       userIds.map(async (userId) => {
         const profile = await this.redis.instance.hgetall(`lobby:player:${userId}`);
-        const gameData = await this.redis.instance.hgetall(`lobby:player:${userId}:state`);
+        const gameData = await this.redis.instance.hgetall(
+          `battle:game:${gameState?.gameId}:participant:${userId}`,
+        );
+        const rank =
+          ((await this.redis.instance.zrevrank("battle:game:scoreboard", userId)) ?? -1) + 1;
+
         if (!profile || Object.keys(profile).length === 0) return null;
 
         return {
@@ -80,7 +90,7 @@ export class MatchService {
           joinedAt: profile.joinedAt,
 
           progressPercent: Number(gameData?.progress ?? 0),
-          rank: Number(gameData?.rank ?? 0),
+          rank: Number(rank ?? 0),
           wpm: Number(gameData?.wpm ?? 0),
           life: Number(gameData?.life ?? 0),
           accuracy: Number(gameData?.accuracy ?? 0),
