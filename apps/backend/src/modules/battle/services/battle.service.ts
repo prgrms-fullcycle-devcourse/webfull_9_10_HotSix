@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import { createUuidV7 } from "../../../common/uuid";
+import { GameStateService } from "../../game-state/game-state.service";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
@@ -77,6 +78,8 @@ export class BattleService {
   constructor(
     private readonly battleStateRepository: BattleStateRepository,
     private readonly promptRepository: PromptRepository,
+    @Inject(forwardRef(() => GameStateService))
+    private readonly gameStateService: GameStateService,
   ) {}
 
   async ensureCurrentGameState() {
@@ -456,6 +459,7 @@ export class BattleService {
 
     await this.battleStateRepository.saveCurrentGameState(finishedGameState);
     await this.battleStateRepository.saveGameResult(result);
+    await this.gameStateService.saveGameResult();
 
     return {
       finishedGameState,

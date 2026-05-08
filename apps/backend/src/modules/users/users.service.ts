@@ -33,6 +33,43 @@ export class UsersService {
     });
   }
 
+  async updateDashboardAfterGame(
+    userId: string,
+    gameResult: {
+      rank: number;
+      wpm: number;
+      isWinner: boolean;
+      acceptedLength: number;
+    },
+  ) {
+    const currentStats = await this.usersRepository.findDashboardByUserId(userId);
+    const totalGames = currentStats.totalGames + 1;
+
+    const avgRank =
+      Math.round(
+        ((currentStats.averageRank * currentStats.totalGames + gameResult.rank) / totalGames) * 10,
+      ) / 10;
+
+    const wpm = Math.round(
+      (currentStats.wpm * currentStats.totalGames + gameResult.wpm) / totalGames,
+    );
+
+    const wordCount = Math.round(gameResult.acceptedLength / 5);
+    const avgWordCount = Math.round(
+      (currentStats.averageWordCount * currentStats.totalGames + wordCount) / totalGames,
+    );
+    const totalWordCount = currentStats.totalWordCount + wordCount;
+
+    return this.usersRepository.updateDashboardByUserId(userId, {
+      totalGames,
+      wins: gameResult.isWinner ? currentStats.wins + 1 : currentStats.wins,
+      avgRank,
+      wpm,
+      avgWordCount,
+      totalWordCount,
+    });
+  }
+
   private buildRandomNickname(): string {
     const adjectives = ["폭주하는", "민첩한", "집중하는", "질주하는", "침착한"];
     const animals = ["타자왕", "치타", "여우", "고슴도치", "매"];

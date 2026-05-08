@@ -9,7 +9,6 @@ import { RedisService } from "../../storage/redis/redis.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { SupabaseService } from "../../storage/supabase/supabase.service";
 import type { BattleRankingEntry } from "../battle/types/battle-game-result";
-
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchService } from "../match/match.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -52,10 +51,7 @@ export class GameStateService {
 
   async saveGameResult() {
     const gameData = await this.getCurrentGame();
-    // 채팅 부분의 Database가 없어서 미뤄짐
-    /*
-    const chatData = await this.redisService.instance.lrange(`game:chat`, 0, -1);
-    */
+
     if (!gameData || gameData.participants.length === 0) {
       throw new BadRequestException("저장할 정보가 없습니다.");
     }
@@ -92,17 +88,14 @@ export class GameStateService {
           if (error) {
             throw new InternalServerErrorException("참가자 저장에 실패했습니다.");
           }
+          this.userService.updateDashboardAfterGame(p.userId, {
+            rank: p.rank,
+            wpm: p.wpm,
+            isWinner: p.rank === 1,
+            acceptedLength: p.acceptedLength,
+          });
         }),
     );
-    // 채팅 부분의 Database가 없어서 미뤄짐
-    /*
-    await Promise.all(
-      chatData.map((raw) => {
-        const msg = JSON.parse(raw);
-        return this.supabaseService.instance.from("")
-      })
-    )
-    */
   }
 
   async getCurrentGame() {
@@ -315,15 +308,19 @@ export class GameStateService {
       gameId: game.id,
       startedAt: game.started_at,
       endedAt: game.ended_at,
-      winner: participants[0]?.users?.nickname ?? "",
+      winner: {
+        userId: participants[0]?.user_id ?? "",
+        nickname: participants[0]?.users?.nickname,
+        avatarUrl: participants[0]?.users?.avatar_url,
+      },
       rankings: participants,
     };
   }
+
   private toParticipant(row: ParticipantDto) {
     return {
       userId: row.user_id,
       gameId: row.game_id,
-      chatId: row.chat_id,
       finalRank: row.final_rank,
       isWinner: row.is_winner,
       isSurvived: row.is_survived,

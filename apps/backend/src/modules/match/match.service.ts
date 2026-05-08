@@ -23,7 +23,14 @@ export class MatchService {
   async joinGame(userId: string) {
     const user = await this.usersRepository.findById(userId);
 
-    const gameStatus = await this.redis.instance.hget("game:current", "status");
+    const currentGameId = await this.redis.instance.get("battle:current-game-id");
+    const rawGamestate = currentGameId
+      ? await this.redis.instance.get(`battle:game:${currentGameId}:state`)
+      : null;
+
+    const gameState = rawGamestate ? JSON.parse(rawGamestate) : null;
+    const gameStatus = gameState?.phase;
+
     const role = gameStatus === "in_progress" ? "spectator" : "player";
     const status = gameStatus === "in_progress" ? "spectating" : "waiting";
     const socketAuthToken = `ws_tk_${randomUUID()}`;
