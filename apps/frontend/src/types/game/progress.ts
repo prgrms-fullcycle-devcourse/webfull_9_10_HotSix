@@ -2,6 +2,7 @@ export type GameProgressProps = {
   typingCount: number;
   accuracy: number;
   time: string;
+  isWaiting?: boolean;
 };
 
 export type StatusItemProps = {
