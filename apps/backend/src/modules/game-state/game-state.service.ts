@@ -4,8 +4,10 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
-import type { RedisService } from "../../storage/redis/redis.service";
-import type { SupabaseService } from "../../storage/supabase/supabase.service";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { RedisService } from "../../storage/redis/redis.service";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { SupabaseService } from "../../storage/supabase/supabase.service";
 
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchService } from "../match/match.service";
