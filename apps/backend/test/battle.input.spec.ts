@@ -6,12 +6,14 @@ jest.mock("../src/common/uuid", () => ({
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";
 import { BattleGateway } from "../src/modules/battle/gateways/battle.gateway";
+import type { BattleResultRepository } from "../src/modules/battle/repositories/battle-result.repository";
 import type { BattleStateRepository } from "../src/modules/battle/repositories/battle-state.repository";
 import type { PromptRepository } from "../src/modules/battle/repositories/prompt.repository";
 import { BattleService } from "../src/modules/battle/services/battle.service";
 import type { BattleBroadcastService } from "../src/modules/battle/services/battle-broadcast.service";
 import type { BattleParticipantState } from "../src/modules/battle/types/battle-participant-state";
 import type { CurrentGameState } from "../src/modules/battle/types/current-game-state";
+import type { UsersService } from "../src/modules/users/users.service";
 
 const prompt = {
   content: "hello",
@@ -78,7 +80,12 @@ function createService(input: {
   return {
     repository,
     saveParticipantState,
-    service: new BattleService(repository, {} as PromptRepository),
+    service: new BattleService(
+      repository,
+      {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    ),
   };
 }
 
@@ -101,6 +108,20 @@ function createSocket(overrides: { assignedRole?: "player" | "spectator" } = {})
     },
     id: "socket-1",
   } as unknown as Socket;
+}
+
+function createUsersServiceMock(overrides: Partial<UsersService> = {}) {
+  return {
+    recordBattleResults: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as UsersService;
+}
+
+function createBattleResultRepositoryMock(overrides: Partial<BattleResultRepository> = {}) {
+  return {
+    saveBattleGameResult: jest.fn().mockResolvedValue({ id: 101 }),
+    ...overrides,
+  } as unknown as BattleResultRepository;
 }
 
 describe("BattleService input validation", () => {
@@ -306,14 +327,24 @@ describe("BattleService game finish rules", () => {
       saveGameResult: jest.fn(),
     } as unknown as BattleStateRepository;
 
+    const usersService = createUsersServiceMock();
+    const battleResultRepository = createBattleResultRepositoryMock();
+
     return {
+      battleResultRepository,
       repository,
-      service: new BattleService(repository, {} as PromptRepository),
+      service: new BattleService(
+        repository,
+        {} as PromptRepository,
+        usersService,
+        battleResultRepository,
+      ),
+      usersService,
     };
   }
 
   it("finishes when a player reaches 100 percent and ranks the rest by progress", async () => {
-    const { repository, service } = createFinishService({
+    const { battleResultRepository, repository, service, usersService } = createFinishService({
       participants: [
         createParticipantState({
           acceptedLength: 5,
@@ -360,6 +391,33 @@ describe("BattleService game finish rules", () => {
         winnerParticipantId: "user-1",
       }),
     );
+    expect(battleResultRepository.saveBattleGameResult).toHaveBeenCalledWith({
+      currentGameState: expect.objectContaining({ gameId: "game-1" }),
+      result: expect.objectContaining({
+        reason: "completed",
+        winnerParticipantId: "user-1",
+      }),
+    });
+    expect(usersService.recordBattleResults).toHaveBeenCalledWith([
+      expect.objectContaining({
+        acceptedLength: 5,
+        isWinner: true,
+        rank: 1,
+        userId: "user-1",
+      }),
+      expect.objectContaining({
+        acceptedLength: 4,
+        isWinner: false,
+        rank: 2,
+        userId: "user-3",
+      }),
+      expect.objectContaining({
+        acceptedLength: 2,
+        isWinner: false,
+        rank: 3,
+        userId: "user-2",
+      }),
+    ]);
   });
 
   it("finishes when all players are eliminated and ranks by last elimination", async () => {
@@ -440,7 +498,12 @@ describe("BattleService game finish rules", () => {
     const promptRepository = {
       getRandomPrompt: jest.fn().mockResolvedValue(prompt),
     } as unknown as PromptRepository;
-    const service = new BattleService(repository, promptRepository);
+    const service = new BattleService(
+      repository,
+      promptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    );
 
     const nextGameState = await service.startNextWaitingGameIfReady(finishedGameState);
 
@@ -556,6 +619,8 @@ describe("BattleService socket auth and connection dedupe", () => {
         refreshSocketAuthSession,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const session = await service.verifySocketAuthToken("ws_tk_123");
@@ -591,6 +656,8 @@ describe("BattleService socket auth and connection dedupe", () => {
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.registerConnection({
@@ -633,6 +700,8 @@ describe("BattleService socket auth and connection dedupe", () => {
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.unregisterConnection({

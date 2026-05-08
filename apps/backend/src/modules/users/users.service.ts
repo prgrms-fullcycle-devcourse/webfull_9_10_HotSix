@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { RecordBattleResultInput } from "./dto/record-battle-result.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -23,6 +24,11 @@ export class UsersService {
   async deleteMyProfile(userId: string) {
     return this.usersRepository.deleteGuestUser(userId);
   }
+
+  async recordBattleResults(results: RecordBattleResultInput[]) {
+    return this.usersRepository.recordBattleResults(results);
+  }
+
   async createGuestUser() {
     const nickname = this.buildRandomNickname();
     const avatarUrl = this.buildRandomAvatarUrl();
@@ -30,43 +36,6 @@ export class UsersService {
     return this.usersRepository.createGuestUser({
       nickname,
       avatarUrl,
-    });
-  }
-
-  async updateDashboardAfterGame(
-    userId: string,
-    gameResult: {
-      rank: number;
-      wpm: number;
-      isWinner: boolean;
-      acceptedLength: number;
-    },
-  ) {
-    const currentStats = await this.usersRepository.findDashboardByUserId(userId);
-    const totalGames = currentStats.totalGames + 1;
-
-    const avgRank =
-      Math.round(
-        ((currentStats.averageRank * currentStats.totalGames + gameResult.rank) / totalGames) * 10,
-      ) / 10;
-
-    const wpm = Math.round(
-      (currentStats.wpm * currentStats.totalGames + gameResult.wpm) / totalGames,
-    );
-
-    const wordCount = Math.round(gameResult.acceptedLength / 5);
-    const avgWordCount = Math.round(
-      (currentStats.averageWordCount * currentStats.totalGames + wordCount) / totalGames,
-    );
-    const totalWordCount = currentStats.totalWordCount + wordCount;
-
-    return this.usersRepository.updateDashboardByUserId(userId, {
-      totalGames,
-      wins: gameResult.isWinner ? currentStats.wins + 1 : currentStats.wins,
-      avgRank,
-      wpm,
-      avgWordCount,
-      totalWordCount,
     });
   }
 
