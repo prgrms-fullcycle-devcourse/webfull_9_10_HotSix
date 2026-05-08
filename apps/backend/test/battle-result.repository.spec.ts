@@ -81,9 +81,7 @@ describe("BattleResultRepository", () => {
 
     expect(gamesInsert).toHaveBeenCalledWith({
       ended_at: result.finishedAt,
-      prompt_id: 7,
       started_at: currentGameState.gameStartedAt,
-      status: true,
       total_players: "2",
       winner_user_id: "user-1",
     });
@@ -93,7 +91,7 @@ describe("BattleResultRepository", () => {
         created_at: "2026-05-06",
         final_rank: 1,
         game_id: 101,
-        is_suvived: true,
+        is_survived: true,
         is_winner: true,
         life: 3,
         user_id: "user-1",
@@ -104,7 +102,7 @@ describe("BattleResultRepository", () => {
         created_at: "2026-05-06",
         final_rank: 2,
         game_id: 101,
-        is_suvived: false,
+        is_survived: false,
         is_winner: false,
         life: 0,
         user_id: "user-2",

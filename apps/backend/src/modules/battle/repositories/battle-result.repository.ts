@@ -23,9 +23,7 @@ export class BattleResultRepository {
       .from("games")
       .insert({
         ended_at: result.finishedAt,
-        prompt_id: currentGameState.prompt.id,
         started_at: currentGameState.gameStartedAt,
-        status: true,
         total_players: String(result.rankings.length),
         winner_user_id: result.winnerParticipantId,
       })
@@ -48,7 +46,7 @@ export class BattleResultRepository {
           created_at: result.finishedAt.slice(0, 10),
           final_rank: ranking.rank,
           game_id: game.id,
-          is_suvived: ranking.status !== "eliminated",
+          is_survived: ranking.status !== "eliminated",
           is_winner: ranking.isWinner,
           life: ranking.life,
           user_id: ranking.participantId,

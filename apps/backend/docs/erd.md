@@ -20,14 +20,7 @@ Table user_stats {
   wins integer
   wpm integer
   avg_rank integer
-  best_rank integer
-  recent_rank integer
-  world_rank integer
-  accuracy integer
-  top_percentile integer
-  total_play_count integer
   avg_word_count integer
-  recent_word_count integer
   total_word_count integer
   updated_at integer
 }
@@ -52,22 +45,19 @@ Table prompts {
 
 Table games {
   id integer [primary key]
-  status boolean
   started_at varchar
   ended_at varchar
   total_players varchar
   winner_user_id text
-  prompt_id integer [ref: > prompts.id]
 }
 
 Table participants {
-  id integer [primary key]
   game_id integer [ref: > games.id]
   chat_id integer [ref: > chats.id]
   user_id integer [ref: > users.id]
   final_rank integer
   is_winner boolean
-  is_suvived boolean
+  is_survived boolean
   life integer
   wpm integer
   accuracy integer
@@ -91,7 +81,6 @@ erDiagram
     USERS ||--|| USER_STATS : has
     USERS ||--|| REFRESH_TOKENS : owns
     USERS ||--o{ PARTICIPANTS : plays_as
-    PROMPTS ||--o| GAMES : assigned_to
     GAMES ||--o| PARTICIPANTS : has
     CHATS ||--o| PARTICIPANTS : maps_to
 
@@ -109,14 +98,7 @@ erDiagram
       int wins
       int wpm
       int avg_rank
-      int best_rank
-      int recent_rank
-      int world_rank
-      int accuracy
-      int top_percentile
-      int total_play_count
       int avg_word_count
-      int recent_word_count
       int total_word_count
       int updated_at
     }
@@ -141,22 +123,19 @@ erDiagram
 
     GAMES {
       int id PK
-      boolean status
       varchar started_at
       varchar ended_at
       varchar total_players
       text winner_user_id
-      int prompt_id FK
     }
 
     PARTICIPANTS {
-      int id PK
       int game_id FK
       int chat_id FK
       int user_id FK
       int final_rank
       boolean is_winner
-      boolean is_suvived
+      boolean is_survived
       int life
       int wpm
       int accuracy
@@ -185,7 +164,7 @@ erDiagram
 
 ## Implementation Notes
 
-- `status`가 `boolean`인 테이블은 현재 문서에서는 원본을 유지합니다. 실제 서비스 코드에서는 `true/false` 값을 `대기/진행/종료` 같은 상태로 매핑해 사용할 수 있습니다.
-- `started_at`, `ended_at`, `total_players`, `winner_user_id` 타입도 원본을 유지합니다. 구현 단계에서 필요한 경우 DTO나 서비스 레이어에서 타입 변환을 수행하는 방식이 안전합니다.
-- `participants`의 `unique` 제약은 실제 게임 규칙상 다소 강하게 보일 수 있지만, 이번 문서에서는 수정하지 않고 유지합니다. 구현 전 최종 DB 적용 단계에서 팀 합의로 재검토하면 됩니다.
+- `games`는 현재 운영 DB의 종료 결과 저장 컬럼만 문서화합니다.
+- `started_at`, `ended_at`, `total_players`, `winner_user_id` 타입은 실제 DB와 서비스 payload 기준을 따릅니다.
+- `participants.is_survived`는 참가자가 종료 시점까지 생존했는지 저장합니다.
 - 멀티 탭 감지, 비활성 사용자 실격, 실시간 진행률 갱신 같은 기능은 우선 DB 스키마 변경 없이 소켓 연결 상태와 Redis 메모리 상태로 처리하는 방향을 권장합니다.
