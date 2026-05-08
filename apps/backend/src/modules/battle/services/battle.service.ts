@@ -1,5 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { createUuidV7 } from "../../../common/uuid";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { UsersService } from "../../users/users.service";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
@@ -74,9 +76,12 @@ export type BattleFinishedResult = {
 
 @Injectable()
 export class BattleService {
+  private readonly logger = new Logger(BattleService.name);
+
   constructor(
     private readonly battleStateRepository: BattleStateRepository,
     private readonly promptRepository: PromptRepository,
+    private readonly usersService: UsersService,
   ) {}
 
   async ensureCurrentGameState() {
@@ -456,6 +461,7 @@ export class BattleService {
 
     await this.battleStateRepository.saveCurrentGameState(finishedGameState);
     await this.battleStateRepository.saveGameResult(result);
+    await this.recordUserStats(result);
 
     return {
       finishedGameState,
@@ -633,6 +639,25 @@ export class BattleService {
       reason: input.reason,
       winnerParticipantId: winner?.participantId ?? null,
     };
+  }
+
+  private async recordUserStats(result: BattleGameResult) {
+    try {
+      await this.usersService.recordBattleResults(
+        result.rankings.map((ranking) => ({
+          acceptedLength: ranking.acceptedLength,
+          isWinner: ranking.isWinner,
+          rank: ranking.rank,
+          userId: ranking.participantId,
+          wpm: ranking.wpm,
+        })),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist user battle stats for game ${result.gameId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private resolveFinishReason(

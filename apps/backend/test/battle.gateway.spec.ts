@@ -11,6 +11,7 @@ import type { PromptRepository } from "../src/modules/battle/repositories/prompt
 import { BattleService } from "../src/modules/battle/services/battle.service";
 import type { BattleBroadcastService } from "../src/modules/battle/services/battle-broadcast.service";
 import type { CurrentGameState } from "../src/modules/battle/types/current-game-state";
+import type { UsersService } from "../src/modules/users/users.service";
 
 const prompt = {
   content: "hello battle",
@@ -69,6 +70,12 @@ function createServer() {
   const server = { to } as unknown as Server;
 
   return { emit, server, to };
+}
+
+function createUsersServiceMock() {
+  return {
+    recordBattleResults: jest.fn().mockResolvedValue(undefined),
+  } as unknown as UsersService;
 }
 
 describe("BattleGateway", () => {
@@ -239,7 +246,11 @@ describe("BattleGateway", () => {
 
 describe("BattleService socket payloads", () => {
   it("does not expose prompt content while the game is waiting", () => {
-    const service = new BattleService({} as BattleStateRepository, {} as PromptRepository);
+    const service = new BattleService(
+      {} as BattleStateRepository,
+      {} as PromptRepository,
+      createUsersServiceMock(),
+    );
 
     const payload = service.buildStatePayload(createGameState());
 
@@ -251,7 +262,11 @@ describe("BattleService socket payloads", () => {
   });
 
   it("exposes prompt content after the game starts", () => {
-    const service = new BattleService({} as BattleStateRepository, {} as PromptRepository);
+    const service = new BattleService(
+      {} as BattleStateRepository,
+      {} as PromptRepository,
+      createUsersServiceMock(),
+    );
 
     const payload = service.buildStatePayload(
       createGameState({
@@ -274,6 +289,7 @@ describe("BattleService socket payloads", () => {
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
     );
 
     const result = await service.unregisterConnection({
