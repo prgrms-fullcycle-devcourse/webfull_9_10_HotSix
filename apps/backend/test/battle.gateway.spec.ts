@@ -6,6 +6,7 @@ jest.mock("../src/common/uuid", () => ({
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";
 import { BattleGateway } from "../src/modules/battle/gateways/battle.gateway";
+import type { BattleResultRepository } from "../src/modules/battle/repositories/battle-result.repository";
 import type { BattleStateRepository } from "../src/modules/battle/repositories/battle-state.repository";
 import type { PromptRepository } from "../src/modules/battle/repositories/prompt.repository";
 import { BattleService } from "../src/modules/battle/services/battle.service";
@@ -76,6 +77,12 @@ function createUsersServiceMock() {
   return {
     recordBattleResults: jest.fn().mockResolvedValue(undefined),
   } as unknown as UsersService;
+}
+
+function createBattleResultRepositoryMock() {
+  return {
+    saveBattleGameResult: jest.fn().mockResolvedValue({ id: 101 }),
+  } as unknown as BattleResultRepository;
 }
 
 describe("BattleGateway", () => {
@@ -250,6 +257,7 @@ describe("BattleService socket payloads", () => {
       {} as BattleStateRepository,
       {} as PromptRepository,
       createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const payload = service.buildStatePayload(createGameState());
@@ -266,6 +274,7 @@ describe("BattleService socket payloads", () => {
       {} as BattleStateRepository,
       {} as PromptRepository,
       createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const payload = service.buildStatePayload(
@@ -290,6 +299,7 @@ describe("BattleService socket payloads", () => {
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
       createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.unregisterConnection({

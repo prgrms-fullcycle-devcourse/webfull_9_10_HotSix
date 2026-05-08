@@ -6,6 +6,7 @@ jest.mock("../src/common/uuid", () => ({
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";
 import { BattleGateway } from "../src/modules/battle/gateways/battle.gateway";
+import type { BattleResultRepository } from "../src/modules/battle/repositories/battle-result.repository";
 import type { BattleStateRepository } from "../src/modules/battle/repositories/battle-state.repository";
 import type { PromptRepository } from "../src/modules/battle/repositories/prompt.repository";
 import { BattleService } from "../src/modules/battle/services/battle.service";
@@ -79,7 +80,12 @@ function createService(input: {
   return {
     repository,
     saveParticipantState,
-    service: new BattleService(repository, {} as PromptRepository, createUsersServiceMock()),
+    service: new BattleService(
+      repository,
+      {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    ),
   };
 }
 
@@ -109,6 +115,13 @@ function createUsersServiceMock(overrides: Partial<UsersService> = {}) {
     recordBattleResults: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as UsersService;
+}
+
+function createBattleResultRepositoryMock(overrides: Partial<BattleResultRepository> = {}) {
+  return {
+    saveBattleGameResult: jest.fn().mockResolvedValue({ id: 101 }),
+    ...overrides,
+  } as unknown as BattleResultRepository;
 }
 
 describe("BattleService input validation", () => {
@@ -315,16 +328,23 @@ describe("BattleService game finish rules", () => {
     } as unknown as BattleStateRepository;
 
     const usersService = createUsersServiceMock();
+    const battleResultRepository = createBattleResultRepositoryMock();
 
     return {
+      battleResultRepository,
       repository,
-      service: new BattleService(repository, {} as PromptRepository, usersService),
+      service: new BattleService(
+        repository,
+        {} as PromptRepository,
+        usersService,
+        battleResultRepository,
+      ),
       usersService,
     };
   }
 
   it("finishes when a player reaches 100 percent and ranks the rest by progress", async () => {
-    const { repository, service, usersService } = createFinishService({
+    const { battleResultRepository, repository, service, usersService } = createFinishService({
       participants: [
         createParticipantState({
           acceptedLength: 5,
@@ -371,6 +391,13 @@ describe("BattleService game finish rules", () => {
         winnerParticipantId: "user-1",
       }),
     );
+    expect(battleResultRepository.saveBattleGameResult).toHaveBeenCalledWith({
+      currentGameState: expect.objectContaining({ gameId: "game-1" }),
+      result: expect.objectContaining({
+        reason: "completed",
+        winnerParticipantId: "user-1",
+      }),
+    });
     expect(usersService.recordBattleResults).toHaveBeenCalledWith([
       expect.objectContaining({
         acceptedLength: 5,
@@ -471,7 +498,12 @@ describe("BattleService game finish rules", () => {
     const promptRepository = {
       getRandomPrompt: jest.fn().mockResolvedValue(prompt),
     } as unknown as PromptRepository;
-    const service = new BattleService(repository, promptRepository, createUsersServiceMock());
+    const service = new BattleService(
+      repository,
+      promptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    );
 
     const nextGameState = await service.startNextWaitingGameIfReady(finishedGameState);
 
@@ -588,6 +620,7 @@ describe("BattleService socket auth and connection dedupe", () => {
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
       createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const session = await service.verifySocketAuthToken("ws_tk_123");
@@ -624,6 +657,7 @@ describe("BattleService socket auth and connection dedupe", () => {
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
       createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.registerConnection({
@@ -667,6 +701,7 @@ describe("BattleService socket auth and connection dedupe", () => {
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
       createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.unregisterConnection({

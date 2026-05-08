@@ -4,6 +4,8 @@ import { createUuidV7 } from "../../../common/uuid";
 import { UsersService } from "../../users/users.service";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { BattleResultRepository } from "../repositories/battle-result.repository";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { PromptRepository } from "../repositories/prompt.repository";
@@ -82,6 +84,7 @@ export class BattleService {
     private readonly battleStateRepository: BattleStateRepository,
     private readonly promptRepository: PromptRepository,
     private readonly usersService: UsersService,
+    private readonly battleResultRepository: BattleResultRepository,
   ) {}
 
   async ensureCurrentGameState() {
@@ -461,6 +464,7 @@ export class BattleService {
 
     await this.battleStateRepository.saveCurrentGameState(finishedGameState);
     await this.battleStateRepository.saveGameResult(result);
+    await this.recordBattleResult(lockedGameState, result);
     await this.recordUserStats(result);
 
     return {
@@ -655,6 +659,20 @@ export class BattleService {
     } catch (error) {
       this.logger.error(
         `Failed to persist user battle stats for game ${result.gameId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  private async recordBattleResult(currentGameState: CurrentGameState, result: BattleGameResult) {
+    try {
+      await this.battleResultRepository.saveBattleGameResult({
+        currentGameState,
+        result,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist battle game result for game ${result.gameId}`,
         error instanceof Error ? error.stack : String(error),
       );
     }
