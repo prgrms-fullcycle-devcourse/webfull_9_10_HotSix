@@ -2,11 +2,10 @@ import { Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Socket } from "socket.io-client";
-
+import SideBar from "@/components/common/Sidebar/SideBar";
 import { GameProgress } from "@/components/game/GameProgress";
 import PracticeBox from "@/components/game/PracticeBox";
 import { RaceTrack } from "@/components/game/RaceTrack";
-import SideBar from "@/components/game/Sidebar/SideBar";
 import TypingGame from "@/components/game/TypingGame/TypingGame";
 import { PATH } from "@/constants/route";
 import { createBattleSocket } from "@/lib/socket/battleSocket";

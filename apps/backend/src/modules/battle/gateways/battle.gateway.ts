@@ -12,6 +12,7 @@ import type { Server, Socket } from "socket.io";
 import { SOCKET_EVENTS } from "../../../common/constants/socket-events";
 import type { BattleInputDto } from "../dto/battle-input.dto";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
+import type { BattleFinishedResult } from "../services/battle.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleService } from "../services/battle.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -98,7 +99,14 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         ...this.getUserIdPayload(client),
       });
 
-      this.battleService.handleDisconnectUser(this.getParticipantId(client));
+      await this.battleService.handleDisconnectUser(this.getParticipantId(client));
+
+      const finishedResult = await this.battleService.finishCurrentGameIfNeeded();
+
+      if (finishedResult) {
+        this.emitFinishedGame(roomName, finishedResult);
+        return;
+      }
     }
 
     if (updatedGameState.phase === "waiting") {
@@ -144,6 +152,14 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
           userId: result.data.participant.participantId,
         });
       }
+
+      if (result.data.isFinished || result.data.isEliminated) {
+        const finishedResult = await this.battleService.finishCurrentGameIfNeeded();
+
+        if (finishedResult) {
+          this.emitFinishedGame(roomName, finishedResult);
+        }
+      }
     }
 
     return {
@@ -179,6 +195,21 @@ export class BattleGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   private getBattleRoomName(gameId: string) {
     return `battle:${gameId}`;
+  }
+
+  private emitFinishedGame(roomName: string, finishedResult: BattleFinishedResult) {
+    this.server
+      .to(roomName)
+      .emit(
+        SOCKET_EVENTS.BATTLE_FINISHED,
+        this.battleService.buildFinishedPayload(finishedResult.finishedGameState),
+      );
+    this.server
+      .to(roomName)
+      .emit(
+        SOCKET_EVENTS.BATTLE_STATE,
+        this.battleService.buildStatePayload(finishedResult.finishedGameState),
+      );
   }
 
   private getGameId(client: Socket) {

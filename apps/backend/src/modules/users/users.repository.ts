@@ -8,6 +8,7 @@ import {
 import { SupabaseService } from "../../storage/supabase/supabase.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
+import type { RecordBattleResultInput } from "./dto/record-battle-result.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -136,15 +137,15 @@ export class UsersRepository {
       joinedAt: user.createdAt,
       totalGames: data?.total_games ?? 0,
       wins: data?.wins ?? 0,
-      totalPlayCount: data?.total_play_count ?? 0,
+      totalPlayCount: 0,
       averageRank: data?.avg_rank ?? 0,
-      recentRank: data?.recent_rank ?? 0,
-      bestRank: data?.best_rank ?? 0,
-      topPercentile: data?.top_percentile ?? 0,
+      recentRank: 0,
+      bestRank: 0,
+      topPercentile: 0,
       averageWpm: data?.wpm ?? 0,
-      averageAccuracy: data?.accuracy ?? 0,
+      averageAccuracy: 0,
       averageWordCount: data?.avg_word_count ?? 0,
-      recentWordCount: data?.recent_word_count ?? 0,
+      recentWordCount: 0,
       totalWordCount: data?.total_word_count ?? 0,
     };
   }
@@ -157,15 +158,8 @@ export class UsersRepository {
     if (input.totalGames !== undefined) updatePayload.total_games = input.totalGames;
     if (input.wins !== undefined) updatePayload.wins = input.wins;
     if (input.avgRank !== undefined) updatePayload.avg_rank = input.avgRank;
-    if (input.bestRank !== undefined) updatePayload.best_rank = input.bestRank;
-    if (input.recentRank !== undefined) updatePayload.recent_rank = input.recentRank;
     if (input.wpm !== undefined) updatePayload.wpm = input.wpm;
-    if (input.accuracy !== undefined) updatePayload.accuracy = input.accuracy;
-    if (input.topPercentile !== undefined) updatePayload.top_percentile = input.topPercentile;
-    if (input.totalPlayCount !== undefined) updatePayload.total_play_count = input.totalPlayCount;
     if (input.avgWordCount !== undefined) updatePayload.avg_word_count = input.avgWordCount;
-    if (input.recentWordCount !== undefined)
-      updatePayload.recent_word_count = input.recentWordCount;
     if (input.totalWordCount !== undefined) updatePayload.total_word_count = input.totalWordCount;
 
     if (Object.keys(updatePayload).length === 0) {
@@ -189,17 +183,57 @@ export class UsersRepository {
       joinedAt: user.createdAt,
       totalGames: data?.total_games ?? 0,
       wins: data?.wins ?? 0,
-      totalPlayCount: data?.total_play_count ?? 0,
+      totalPlayCount: 0,
       averageRank: data?.avg_rank ?? 0,
-      recentRank: data?.recent_rank ?? 0,
-      bestRank: data?.best_rank ?? 0,
-      topPercentile: data?.top_percentile ?? 0,
+      recentRank: 0,
+      bestRank: 0,
+      topPercentile: 0,
       averageWpm: data?.wpm ?? 0,
-      averageAccuracy: data?.accuracy ?? 0,
+      averageAccuracy: 0,
       averageWordCount: data?.avg_word_count ?? 0,
-      recentWordCount: data?.recent_word_count ?? 0,
+      recentWordCount: 0,
       totalWordCount: data?.total_word_count ?? 0,
     };
+  }
+
+  async recordBattleResults(results: RecordBattleResultInput[]) {
+    await Promise.all(results.map((result) => this.recordBattleResult(result)));
+  }
+
+  async recordBattleResult(input: RecordBattleResultInput) {
+    const { data: currentStats, error: findStatsError } = await this.supabaseService.instance
+      .from("user_stats")
+      .select("*")
+      .eq("user_id", input.userId)
+      .maybeSingle<UserStatsDto>();
+
+    if (findStatsError) {
+      throw new InternalServerErrorException("유저 통계 조회에 실패했습니다.");
+    }
+
+    const totalGames = currentStats?.total_games ?? 0;
+    const nextTotalGames = totalGames + 1;
+    const totalWordCount = currentStats?.total_word_count ?? 0;
+    const nextTotalWordCount = totalWordCount + Math.max(0, input.acceptedLength);
+
+    const updatePayload = {
+      user_id: input.userId,
+      total_games: nextTotalGames,
+      wins: (currentStats?.wins ?? 0) + (input.isWinner ? 1 : 0),
+      wpm: this.calculateNextAverage(currentStats?.wpm ?? 0, totalGames, input.wpm),
+      avg_rank: this.calculateNextAverage(currentStats?.avg_rank ?? 0, totalGames, input.rank),
+      avg_word_count: Math.round(nextTotalWordCount / nextTotalGames),
+      total_word_count: nextTotalWordCount,
+      updated_at: Date.now(),
+    };
+
+    const { error: updateStatsError } = await this.supabaseService.instance
+      .from("user_stats")
+      .upsert(updatePayload, { onConflict: "user_id" });
+
+    if (updateStatsError) {
+      throw new InternalServerErrorException("유저 통계 저장에 실패했습니다.");
+    }
   }
 
   private toUserProfile(row: UserRowDto) {
@@ -209,5 +243,9 @@ export class UsersRepository {
       avatarUrl: row.avatar_url,
       createdAt: row.created_at,
     };
+  }
+
+  private calculateNextAverage(currentAverage: number, totalGames: number, gameValue: number) {
+    return Math.round((currentAverage * totalGames + gameValue) / (totalGames + 1));
   }
 }

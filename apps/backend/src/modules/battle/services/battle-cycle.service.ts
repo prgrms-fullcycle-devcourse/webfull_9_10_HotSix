@@ -3,6 +3,7 @@ import { SOCKET_EVENTS } from "../../../common/constants/socket-events";
 import { createUuidV7 } from "../../../common/uuid";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
+import type { BattleFinishedResult } from "./battle.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleService } from "./battle.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -43,14 +44,7 @@ export class BattleCycleService implements OnModuleDestroy, OnModuleInit {
     }
 
     this.logger.log(`Finished game ${finishedResult.finishedGameState.gameId}`);
-    this.battleBroadcastService.emitToAll(
-      SOCKET_EVENTS.BATTLE_FINISHED,
-      this.battleService.buildStatePayload(finishedResult.finishedGameState),
-    );
-    this.battleBroadcastService.emitToAll(
-      SOCKET_EVENTS.BATTLE_WAITING,
-      this.battleService.buildWaitingPayload(finishedResult.nextWaitingGameState),
-    );
+    this.emitFinishedGame(finishedResult);
 
     return finishedResult;
   }
@@ -66,6 +60,36 @@ export class BattleCycleService implements OnModuleDestroy, OnModuleInit {
     }
 
     const currentGameState = await this.battleService.ensureCurrentGameState();
+
+    if (currentGameState.phase === "finished") {
+      const nextWaitingGameState =
+        await this.battleService.startNextWaitingGameIfReady(currentGameState);
+
+      if (nextWaitingGameState) {
+        this.logger.log(`Opened waiting room for game ${nextWaitingGameState.gameId}`);
+        this.battleBroadcastService.emitToAll(
+          SOCKET_EVENTS.BATTLE_WAITING,
+          this.battleService.buildWaitingPayload(nextWaitingGameState),
+        );
+        this.battleBroadcastService.emitToAll(
+          SOCKET_EVENTS.BATTLE_STATE,
+          this.battleService.buildStatePayload(nextWaitingGameState),
+        );
+      }
+
+      return;
+    }
+
+    if (currentGameState.phase === "in_progress") {
+      const finishedResult = await this.battleService.finishCurrentGameIfNeeded(currentGameState);
+
+      if (finishedResult) {
+        this.logger.log(`Finished game ${finishedResult.finishedGameState.gameId}`);
+        this.emitFinishedGame(finishedResult);
+      }
+
+      return;
+    }
 
     if (currentGameState.phase !== "waiting") {
       return;
@@ -111,6 +135,17 @@ export class BattleCycleService implements OnModuleDestroy, OnModuleInit {
     this.battleBroadcastService.emitToAll(
       SOCKET_EVENTS.BATTLE_WAITING,
       this.battleService.buildWaitingPayload(currentGameState),
+    );
+  }
+
+  private emitFinishedGame(finishedResult: BattleFinishedResult) {
+    this.battleBroadcastService.emitToAll(
+      SOCKET_EVENTS.BATTLE_FINISHED,
+      this.battleService.buildFinishedPayload(finishedResult.finishedGameState),
+    );
+    this.battleBroadcastService.emitToAll(
+      SOCKET_EVENTS.BATTLE_STATE,
+      this.battleService.buildStatePayload(finishedResult.finishedGameState),
     );
   }
 

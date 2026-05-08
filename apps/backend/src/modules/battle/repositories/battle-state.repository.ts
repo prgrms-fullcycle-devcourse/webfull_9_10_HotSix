@@ -6,6 +6,7 @@ import {
   getBattleActiveConnectionKey,
   getBattleSocketAuthTokenKey,
 } from "../constants/battle-redis-keys";
+import type { BattleGameResult } from "../types/battle-game-result";
 import type { BattleParticipantState } from "../types/battle-participant-state";
 import type {
   BattleActiveConnection,
@@ -23,6 +24,18 @@ export class BattleStateRepository {
   async acquireTimerLock(lockToken: string, ttlSeconds: number) {
     const result = await this.redisService.instance.set(
       BATTLE_TIMER_LOCK_KEY,
+      lockToken,
+      "EX",
+      ttlSeconds,
+      "NX",
+    );
+
+    return result === "OK";
+  }
+
+  async acquireGameFinishLock(gameId: string, lockToken: string, ttlSeconds: number) {
+    const result = await this.redisService.instance.set(
+      `battle:game:${gameId}:finish-lock`,
       lockToken,
       "EX",
       ttlSeconds,
@@ -93,6 +106,23 @@ export class BattleStateRepository {
     return JSON.parse(value) as BattleParticipantState;
   }
 
+  async getPlayerParticipantStates(gameId: string) {
+    const participantIds = await this.redisService.instance.zrange(
+      `battle:game:${gameId}:scoreboard`,
+      0,
+      -1,
+    );
+
+    const participantStates = await Promise.all(
+      participantIds.map((participantId) => this.getParticipantState(gameId, participantId)),
+    );
+
+    return participantStates.filter(
+      (participantState): participantState is BattleParticipantState =>
+        participantState?.role === "player",
+    );
+  }
+
   async saveParticipantState(participantState: BattleParticipantState) {
     await this.redisService.instance.set(
       `battle:game:${participantState.gameId}:participant:${participantState.participantId}`,
@@ -132,6 +162,8 @@ export class BattleStateRepository {
         const nextState: BattleParticipantState = {
           acceptedLength: 0,
           accuracy: 100,
+          eliminatedAt: null,
+          finishedAt: null,
           gameId,
           lastInputAt: null,
           lastPenaltyIndex: null,
@@ -159,12 +191,26 @@ export class BattleStateRepository {
 
     if (!participantState) return;
 
+    if (participantState.status === "eliminated" || participantState.status === "finished") {
+      return;
+    }
+
+    const disconnectedAt = new Date().toISOString();
+
     await this.saveParticipantState({
       ...participantState,
+      eliminatedAt: participantState.eliminatedAt ?? disconnectedAt,
       life: 0,
       status: "eliminated",
-      lastInputAt: new Date().toISOString(),
+      lastInputAt: disconnectedAt,
     });
+  }
+
+  async saveGameResult(result: BattleGameResult) {
+    await this.redisService.instance.set(
+      `battle:game:${result.gameId}:result`,
+      JSON.stringify(result),
+    );
   }
 
   async refreshSocketAuthSession(token: string) {

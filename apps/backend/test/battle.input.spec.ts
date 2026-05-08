@@ -6,12 +6,14 @@ jest.mock("../src/common/uuid", () => ({
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";
 import { BattleGateway } from "../src/modules/battle/gateways/battle.gateway";
+import type { BattleResultRepository } from "../src/modules/battle/repositories/battle-result.repository";
 import type { BattleStateRepository } from "../src/modules/battle/repositories/battle-state.repository";
 import type { PromptRepository } from "../src/modules/battle/repositories/prompt.repository";
 import { BattleService } from "../src/modules/battle/services/battle.service";
 import type { BattleBroadcastService } from "../src/modules/battle/services/battle-broadcast.service";
 import type { BattleParticipantState } from "../src/modules/battle/types/battle-participant-state";
 import type { CurrentGameState } from "../src/modules/battle/types/current-game-state";
+import type { UsersService } from "../src/modules/users/users.service";
 
 const prompt = {
   content: "hello",
@@ -78,7 +80,12 @@ function createService(input: {
   return {
     repository,
     saveParticipantState,
-    service: new BattleService(repository, {} as PromptRepository),
+    service: new BattleService(
+      repository,
+      {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    ),
   };
 }
 
@@ -101,6 +108,20 @@ function createSocket(overrides: { assignedRole?: "player" | "spectator" } = {})
     },
     id: "socket-1",
   } as unknown as Socket;
+}
+
+function createUsersServiceMock(overrides: Partial<UsersService> = {}) {
+  return {
+    recordBattleResults: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as UsersService;
+}
+
+function createBattleResultRepositoryMock(overrides: Partial<BattleResultRepository> = {}) {
+  return {
+    saveBattleGameResult: jest.fn().mockResolvedValue({ id: 101 }),
+    ...overrides,
+  } as unknown as BattleResultRepository;
 }
 
 describe("BattleService input validation", () => {
@@ -292,6 +313,208 @@ describe("BattleService input validation", () => {
   });
 });
 
+describe("BattleService game finish rules", () => {
+  function createFinishService(input: {
+    currentGameState?: CurrentGameState;
+    participants: BattleParticipantState[];
+  }) {
+    const currentGameState = input.currentGameState ?? createGameState();
+    const repository = {
+      acquireGameFinishLock: jest.fn().mockResolvedValue(true),
+      getCurrentGameState: jest.fn().mockResolvedValue(currentGameState),
+      getPlayerParticipantStates: jest.fn().mockResolvedValue(input.participants),
+      saveCurrentGameState: jest.fn(),
+      saveGameResult: jest.fn(),
+    } as unknown as BattleStateRepository;
+
+    const usersService = createUsersServiceMock();
+    const battleResultRepository = createBattleResultRepositoryMock();
+
+    return {
+      battleResultRepository,
+      repository,
+      service: new BattleService(
+        repository,
+        {} as PromptRepository,
+        usersService,
+        battleResultRepository,
+      ),
+      usersService,
+    };
+  }
+
+  it("finishes when a player reaches 100 percent and ranks the rest by progress", async () => {
+    const { battleResultRepository, repository, service, usersService } = createFinishService({
+      participants: [
+        createParticipantState({
+          acceptedLength: 5,
+          finishedAt: "2026-05-06T00:02:00.000Z",
+          participantId: "user-1",
+          progressPercent: 100,
+          status: "finished",
+        }),
+        createParticipantState({
+          acceptedLength: 2,
+          participantId: "user-2",
+          progressPercent: 40,
+        }),
+        createParticipantState({
+          acceptedLength: 4,
+          participantId: "user-3",
+          progressPercent: 80,
+        }),
+      ],
+    });
+
+    const result = await service.finishCurrentGameIfNeeded();
+
+    expect(result?.result).toMatchObject({
+      reason: "completed",
+      winnerParticipantId: "user-1",
+      rankings: [
+        expect.objectContaining({ isWinner: true, participantId: "user-1", rank: 1 }),
+        expect.objectContaining({ participantId: "user-3", rank: 2 }),
+        expect.objectContaining({ participantId: "user-2", rank: 3 }),
+      ],
+    });
+    expect(repository.saveCurrentGameState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "finished",
+        finishReason: "completed",
+        winnerParticipantId: "user-1",
+        nextWaitingStartsAt: expect.any(String),
+      }),
+    );
+    expect(repository.saveGameResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "completed",
+        winnerParticipantId: "user-1",
+      }),
+    );
+    expect(battleResultRepository.saveBattleGameResult).toHaveBeenCalledWith({
+      currentGameState: expect.objectContaining({ gameId: "game-1" }),
+      result: expect.objectContaining({
+        reason: "completed",
+        winnerParticipantId: "user-1",
+      }),
+    });
+    expect(usersService.recordBattleResults).toHaveBeenCalledWith([
+      expect.objectContaining({
+        acceptedLength: 5,
+        isWinner: true,
+        rank: 1,
+        userId: "user-1",
+      }),
+      expect.objectContaining({
+        acceptedLength: 4,
+        isWinner: false,
+        rank: 2,
+        userId: "user-3",
+      }),
+      expect.objectContaining({
+        acceptedLength: 2,
+        isWinner: false,
+        rank: 3,
+        userId: "user-2",
+      }),
+    ]);
+  });
+
+  it("finishes when all players are eliminated and ranks by last elimination", async () => {
+    const { service } = createFinishService({
+      participants: [
+        createParticipantState({
+          eliminatedAt: "2026-05-06T00:03:00.000Z",
+          participantId: "user-1",
+          status: "eliminated",
+        }),
+        createParticipantState({
+          eliminatedAt: "2026-05-06T00:05:00.000Z",
+          participantId: "user-2",
+          status: "eliminated",
+        }),
+        createParticipantState({
+          eliminatedAt: "2026-05-06T00:04:00.000Z",
+          participantId: "user-3",
+          status: "eliminated",
+        }),
+      ],
+    });
+
+    const result = await service.finishCurrentGameIfNeeded();
+
+    expect(result?.result).toMatchObject({
+      reason: "all_eliminated",
+      winnerParticipantId: "user-2",
+      rankings: [
+        expect.objectContaining({ finalStatus: "winner", participantId: "user-2", rank: 1 }),
+        expect.objectContaining({ finalStatus: "eliminated", participantId: "user-3", rank: 2 }),
+        expect.objectContaining({ finalStatus: "eliminated", participantId: "user-1", rank: 3 }),
+      ],
+    });
+  });
+
+  it("finishes after the 15 minute time limit and ranks by progress", async () => {
+    const startedAt = new Date(Date.now() - 15 * 60 * 1000 - 1000).toISOString();
+    const { service } = createFinishService({
+      currentGameState: createGameState({
+        gameStartedAt: startedAt,
+      }),
+      participants: [
+        createParticipantState({
+          acceptedLength: 1,
+          participantId: "user-1",
+          progressPercent: 20,
+        }),
+        createParticipantState({
+          acceptedLength: 4,
+          participantId: "user-2",
+          progressPercent: 80,
+        }),
+      ],
+    });
+
+    const result = await service.finishCurrentGameIfNeeded();
+
+    expect(result?.result).toMatchObject({
+      reason: "time_limit",
+      winnerParticipantId: "user-2",
+      rankings: [
+        expect.objectContaining({ participantId: "user-2", rank: 1 }),
+        expect.objectContaining({ participantId: "user-1", rank: 2 }),
+      ],
+    });
+  });
+
+  it("opens a new waiting game only after the 30 second finished delay", async () => {
+    const finishedGameState = createGameState({
+      gameEndedAt: "2026-05-06T00:16:00.000Z",
+      nextWaitingStartsAt: new Date(Date.now() - 1000).toISOString(),
+      phase: "finished",
+    });
+    const repository = {
+      saveCurrentGameState: jest.fn(),
+    } as unknown as BattleStateRepository;
+    const promptRepository = {
+      getRandomPrompt: jest.fn().mockResolvedValue(prompt),
+    } as unknown as PromptRepository;
+    const service = new BattleService(
+      repository,
+      promptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    );
+
+    const nextGameState = await service.startNextWaitingGameIfReady(finishedGameState);
+
+    expect(nextGameState).toMatchObject({
+      phase: "waiting",
+      waitingEndsAt: expect.any(String),
+    });
+    expect(repository.saveCurrentGameState).toHaveBeenCalledWith(nextGameState);
+  });
+});
+
 describe("BattleGateway input handling", () => {
   it("broadcasts progress after accepted input", async () => {
     const participant = createParticipantState({
@@ -307,7 +530,10 @@ describe("BattleGateway input handling", () => {
       ok: true,
     });
     const gateway = new BattleGateway(
-      { validateInput } as unknown as BattleService,
+      {
+        finishCurrentGameIfNeeded: jest.fn().mockResolvedValue(null),
+        validateInput,
+      } as unknown as BattleService,
       {} as BattleBroadcastService,
     );
     const { emit, server, to } = createServer();
@@ -353,7 +579,10 @@ describe("BattleGateway input handling", () => {
       ok: true,
     });
     const gateway = new BattleGateway(
-      { validateInput } as unknown as BattleService,
+      {
+        finishCurrentGameIfNeeded: jest.fn().mockResolvedValue(null),
+        validateInput,
+      } as unknown as BattleService,
       {} as BattleBroadcastService,
     );
     const { emit, server } = createServer();
@@ -390,6 +619,8 @@ describe("BattleService socket auth and connection dedupe", () => {
         refreshSocketAuthSession,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const session = await service.verifySocketAuthToken("ws_tk_123");
@@ -425,6 +656,8 @@ describe("BattleService socket auth and connection dedupe", () => {
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.registerConnection({
@@ -467,6 +700,8 @@ describe("BattleService socket auth and connection dedupe", () => {
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
       {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
     );
 
     const result = await service.unregisterConnection({
