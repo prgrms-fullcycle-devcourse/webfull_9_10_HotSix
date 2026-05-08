@@ -292,6 +292,166 @@ describe("BattleService input validation", () => {
   });
 });
 
+describe("BattleService game finish rules", () => {
+  function createFinishService(input: {
+    currentGameState?: CurrentGameState;
+    participants: BattleParticipantState[];
+  }) {
+    const currentGameState = input.currentGameState ?? createGameState();
+    const repository = {
+      acquireGameFinishLock: jest.fn().mockResolvedValue(true),
+      getCurrentGameState: jest.fn().mockResolvedValue(currentGameState),
+      getPlayerParticipantStates: jest.fn().mockResolvedValue(input.participants),
+      saveCurrentGameState: jest.fn(),
+      saveGameResult: jest.fn(),
+    } as unknown as BattleStateRepository;
+
+    return {
+      repository,
+      service: new BattleService(repository, {} as PromptRepository),
+    };
+  }
+
+  it("finishes when a player reaches 100 percent and ranks the rest by progress", async () => {
+    const { repository, service } = createFinishService({
+      participants: [
+        createParticipantState({
+          acceptedLength: 5,
+          finishedAt: "2026-05-06T00:02:00.000Z",
+          participantId: "user-1",
+          progressPercent: 100,
+          status: "finished",
+        }),
+        createParticipantState({
+          acceptedLength: 2,
+          participantId: "user-2",
+          progressPercent: 40,
+        }),
+        createParticipantState({
+          acceptedLength: 4,
+          participantId: "user-3",
+          progressPercent: 80,
+        }),
+      ],
+    });
+
+    const result = await service.finishCurrentGameIfNeeded();
+
+    expect(result?.result).toMatchObject({
+      reason: "completed",
+      winnerParticipantId: "user-1",
+      rankings: [
+        expect.objectContaining({ isWinner: true, participantId: "user-1", rank: 1 }),
+        expect.objectContaining({ participantId: "user-3", rank: 2 }),
+        expect.objectContaining({ participantId: "user-2", rank: 3 }),
+      ],
+    });
+    expect(repository.saveCurrentGameState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "finished",
+        finishReason: "completed",
+        winnerParticipantId: "user-1",
+        nextWaitingStartsAt: expect.any(String),
+      }),
+    );
+    expect(repository.saveGameResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "completed",
+        winnerParticipantId: "user-1",
+      }),
+    );
+  });
+
+  it("finishes when all players are eliminated and ranks by last elimination", async () => {
+    const { service } = createFinishService({
+      participants: [
+        createParticipantState({
+          eliminatedAt: "2026-05-06T00:03:00.000Z",
+          participantId: "user-1",
+          status: "eliminated",
+        }),
+        createParticipantState({
+          eliminatedAt: "2026-05-06T00:05:00.000Z",
+          participantId: "user-2",
+          status: "eliminated",
+        }),
+        createParticipantState({
+          eliminatedAt: "2026-05-06T00:04:00.000Z",
+          participantId: "user-3",
+          status: "eliminated",
+        }),
+      ],
+    });
+
+    const result = await service.finishCurrentGameIfNeeded();
+
+    expect(result?.result).toMatchObject({
+      reason: "all_eliminated",
+      winnerParticipantId: "user-2",
+      rankings: [
+        expect.objectContaining({ finalStatus: "winner", participantId: "user-2", rank: 1 }),
+        expect.objectContaining({ finalStatus: "eliminated", participantId: "user-3", rank: 2 }),
+        expect.objectContaining({ finalStatus: "eliminated", participantId: "user-1", rank: 3 }),
+      ],
+    });
+  });
+
+  it("finishes after the 15 minute time limit and ranks by progress", async () => {
+    const startedAt = new Date(Date.now() - 15 * 60 * 1000 - 1000).toISOString();
+    const { service } = createFinishService({
+      currentGameState: createGameState({
+        gameStartedAt: startedAt,
+      }),
+      participants: [
+        createParticipantState({
+          acceptedLength: 1,
+          participantId: "user-1",
+          progressPercent: 20,
+        }),
+        createParticipantState({
+          acceptedLength: 4,
+          participantId: "user-2",
+          progressPercent: 80,
+        }),
+      ],
+    });
+
+    const result = await service.finishCurrentGameIfNeeded();
+
+    expect(result?.result).toMatchObject({
+      reason: "time_limit",
+      winnerParticipantId: "user-2",
+      rankings: [
+        expect.objectContaining({ participantId: "user-2", rank: 1 }),
+        expect.objectContaining({ participantId: "user-1", rank: 2 }),
+      ],
+    });
+  });
+
+  it("opens a new waiting game only after the 30 second finished delay", async () => {
+    const finishedGameState = createGameState({
+      gameEndedAt: "2026-05-06T00:16:00.000Z",
+      nextWaitingStartsAt: new Date(Date.now() - 1000).toISOString(),
+      phase: "finished",
+    });
+    const repository = {
+      saveCurrentGameState: jest.fn(),
+    } as unknown as BattleStateRepository;
+    const promptRepository = {
+      getRandomPrompt: jest.fn().mockResolvedValue(prompt),
+    } as unknown as PromptRepository;
+    const service = new BattleService(repository, promptRepository);
+
+    const nextGameState = await service.startNextWaitingGameIfReady(finishedGameState);
+
+    expect(nextGameState).toMatchObject({
+      phase: "waiting",
+      waitingEndsAt: expect.any(String),
+    });
+    expect(repository.saveCurrentGameState).toHaveBeenCalledWith(nextGameState);
+  });
+});
+
 describe("BattleGateway input handling", () => {
   it("broadcasts progress after accepted input", async () => {
     const participant = createParticipantState({
@@ -307,7 +467,10 @@ describe("BattleGateway input handling", () => {
       ok: true,
     });
     const gateway = new BattleGateway(
-      { validateInput } as unknown as BattleService,
+      {
+        finishCurrentGameIfNeeded: jest.fn().mockResolvedValue(null),
+        validateInput,
+      } as unknown as BattleService,
       {} as BattleBroadcastService,
     );
     const { emit, server, to } = createServer();
@@ -353,7 +516,10 @@ describe("BattleGateway input handling", () => {
       ok: true,
     });
     const gateway = new BattleGateway(
-      { validateInput } as unknown as BattleService,
+      {
+        finishCurrentGameIfNeeded: jest.fn().mockResolvedValue(null),
+        validateInput,
+      } as unknown as BattleService,
       {} as BattleBroadcastService,
     );
     const { emit, server } = createServer();

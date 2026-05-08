@@ -191,6 +191,7 @@ describe("BattleGateway", () => {
     const buildStatePayload = jest.fn(() => statePayload);
     const battleService = {
       buildStatePayload,
+      finishCurrentGameIfNeeded: jest.fn().mockResolvedValue(null),
       unregisterConnection,
       handleDisconnectUser: jest.fn(),
     } as unknown as BattleService;

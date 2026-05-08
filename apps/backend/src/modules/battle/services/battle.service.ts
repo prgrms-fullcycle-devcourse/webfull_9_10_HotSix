@@ -5,11 +5,19 @@ import type { BattleReadyDto } from "../dto/battle-ready.dto";
 import { BattleStateRepository } from "../repositories/battle-state.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { PromptRepository } from "../repositories/prompt.repository";
+import type {
+  BattleFinishReason,
+  BattleGameResult,
+  BattleRankingEntry,
+} from "../types/battle-game-result";
 import type { BattleParticipantState } from "../types/battle-participant-state";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
 // const WAITING_DURATION_SECONDS = 15 * 60;
 const WAITING_DURATION_SECONDS = 15;
+const GAME_DURATION_SECONDS = 15 * 60;
+const FINISHED_DURATION_SECONDS = 30;
+const FINISH_LOCK_TTL_SECONDS = FINISHED_DURATION_SECONDS + 10;
 const DEFAULT_PLAYER_LIFE = 3;
 
 type BattleInputValidationInput = {
@@ -59,6 +67,11 @@ type BattleInputAcceptedResult = {
 
 export type BattleInputValidationResult = BattleInputAcceptedResult | BattleInputRejectedResult;
 
+export type BattleFinishedResult = {
+  finishedGameState: CurrentGameState;
+  result: BattleGameResult;
+};
+
 @Injectable()
 export class BattleService {
   constructor(
@@ -69,7 +82,7 @@ export class BattleService {
   async ensureCurrentGameState() {
     const currentGameState = await this.battleStateRepository.getCurrentGameState();
 
-    if (currentGameState && currentGameState.phase !== "finished") {
+    if (currentGameState) {
       return currentGameState;
     }
 
@@ -144,6 +157,21 @@ export class BattleService {
       waitingEndsAt: currentGameState.waitingEndsAt,
       gameStartedAt: currentGameState.gameStartedAt,
       gameEndedAt: currentGameState.gameEndedAt,
+      finishReason: currentGameState.finishReason ?? null,
+      nextWaitingStartsAt: currentGameState.nextWaitingStartsAt ?? null,
+      rankings: currentGameState.rankings ?? [],
+      winnerParticipantId: currentGameState.winnerParticipantId ?? null,
+    };
+  }
+
+  buildFinishedPayload(currentGameState: CurrentGameState) {
+    return {
+      finishedAt: currentGameState.gameEndedAt,
+      gameId: currentGameState.gameId,
+      nextWaitingStartsAt: currentGameState.nextWaitingStartsAt ?? null,
+      rankings: currentGameState.rankings ?? [],
+      reason: currentGameState.finishReason ?? null,
+      winnerParticipantId: currentGameState.winnerParticipantId ?? null,
     };
   }
 
@@ -188,7 +216,7 @@ export class BattleService {
     }
 
     const assignedRole: ConnectionRole =
-      currentGameState.phase === "in_progress" ? "spectator" : "player";
+      currentGameState.phase === "waiting" ? "player" : "spectator";
     const updatedGameState = await this.updateConnectionCount(currentGameState, assignedRole, 1);
     await this.battleStateRepository.saveActiveConnection({
       assignedRole,
@@ -328,12 +356,17 @@ export class BattleService {
     const startedAt = new Date().toISOString();
     const startedGameState = {
       ...currentGameState,
+      finishReason: null,
       phase: "in_progress" as const,
       gameStartedAt: startedAt,
+      gameEndedAt: null,
       hasTenSecondNoticeSent: false,
+      nextWaitingStartsAt: null,
+      rankings: [],
       updatedAt: startedAt,
       waitingEndsAt: null,
       waitingStartedAt: null,
+      winnerParticipantId: null,
     };
 
     await this.battleStateRepository.saveCurrentGameState(startedGameState);
@@ -348,10 +381,15 @@ export class BattleService {
     const waitingEndsAt = new Date(now.getTime() + WAITING_DURATION_SECONDS * 1000).toISOString();
     const restartedWaitingGameState = {
       ...currentGameState,
+      finishReason: null,
+      gameEndedAt: null,
       hasTenSecondNoticeSent: false,
+      nextWaitingStartsAt: null,
+      rankings: [],
       updatedAt: waitingStartedAt,
       waitingEndsAt,
       waitingStartedAt,
+      winnerParticipantId: null,
     };
 
     await this.battleStateRepository.saveCurrentGameState(restartedWaitingGameState);
@@ -360,28 +398,111 @@ export class BattleService {
     return restartedWaitingGameState;
   }
 
-  async finishCurrentGame() {
+  async finishCurrentGame(reason?: BattleFinishReason): Promise<BattleFinishedResult | null> {
     const currentGameState = await this.getCurrentGameState();
 
     if (!currentGameState || currentGameState.phase !== "in_progress") {
       return null;
     }
 
+    const hasLock = await this.battleStateRepository.acquireGameFinishLock(
+      currentGameState.gameId,
+      createUuidV7(),
+      FINISH_LOCK_TTL_SECONDS,
+    );
+
+    if (!hasLock) {
+      return null;
+    }
+
+    const lockedGameState = await this.getCurrentGameState();
+
+    if (
+      !lockedGameState ||
+      lockedGameState.gameId !== currentGameState.gameId ||
+      lockedGameState.phase !== "in_progress"
+    ) {
+      return null;
+    }
+
+    const participants = await this.battleStateRepository.getPlayerParticipantStates(
+      lockedGameState.gameId,
+    );
+    const finishReason = this.resolveFinishReason(lockedGameState, participants) ?? reason;
+
+    if (!finishReason) {
+      return null;
+    }
+
     const finishedAt = new Date().toISOString();
+    const result = this.buildGameResult({
+      finishedAt,
+      participants,
+      reason: finishReason,
+      gameId: lockedGameState.gameId,
+    });
     const finishedGameState = {
-      ...currentGameState,
+      ...lockedGameState,
+      finishReason,
       phase: "finished" as const,
       gameEndedAt: finishedAt,
+      nextWaitingStartsAt: new Date(
+        new Date(finishedAt).getTime() + FINISHED_DURATION_SECONDS * 1000,
+      ).toISOString(),
+      rankings: result.rankings,
       updatedAt: finishedAt,
+      winnerParticipantId: result.winnerParticipantId,
     };
-    const nextWaitingGameState = await this.createWaitingGameState(new Date());
 
-    await this.battleStateRepository.saveCurrentGameState(nextWaitingGameState);
+    await this.battleStateRepository.saveCurrentGameState(finishedGameState);
+    await this.battleStateRepository.saveGameResult(result);
 
     return {
       finishedGameState,
-      nextWaitingGameState,
+      result,
     };
+  }
+
+  async finishCurrentGameIfNeeded(
+    currentGameState?: CurrentGameState,
+  ): Promise<BattleFinishedResult | null> {
+    const gameState = currentGameState ?? (await this.getCurrentGameState());
+
+    if (!gameState || gameState.phase !== "in_progress") {
+      return null;
+    }
+
+    const participants = await this.battleStateRepository.getPlayerParticipantStates(
+      gameState.gameId,
+    );
+    const reason = this.resolveFinishReason(gameState, participants);
+
+    if (!reason) {
+      return null;
+    }
+
+    return this.finishCurrentGame(reason);
+  }
+
+  async startNextWaitingGameIfReady(currentGameState?: CurrentGameState) {
+    const gameState = currentGameState ?? (await this.getCurrentGameState());
+
+    if (!gameState || gameState.phase !== "finished") {
+      return null;
+    }
+
+    if (
+      gameState.nextWaitingStartsAt &&
+      new Date(gameState.nextWaitingStartsAt).getTime() > Date.now()
+    ) {
+      return null;
+    }
+
+    const waitingGameState = await this.createWaitingGameState(new Date());
+
+    await this.battleStateRepository.saveCurrentGameState(waitingGameState);
+
+    return waitingGameState;
   }
 
   private async createWaitingGameState(now: Date) {
@@ -392,18 +513,22 @@ export class BattleService {
 
     const gameState = {
       createdAt: waitingStartedAt,
+      finishReason: null,
       gameEndedAt: null,
       gameStartedAt: null,
       gameId,
       hasTenSecondNoticeSent: false,
+      nextWaitingStartsAt: null,
       phase: "waiting" as const,
       playerCount: 0,
       minPlayers: 1, // default = 4
       prompt,
+      rankings: [],
       spectatorCount: 0,
       updatedAt: waitingStartedAt,
       waitingEndsAt,
       waitingStartedAt,
+      winnerParticipantId: null,
     };
 
     return gameState;
@@ -429,6 +554,14 @@ export class BattleService {
       ? Math.max(0, input.participantState.life - 1)
       : input.participantState.life;
     const status = life === 0 ? "eliminated" : input.comparison.isComplete ? "finished" : "playing";
+    const eliminatedAt =
+      status === "eliminated" && input.participantState.status !== "eliminated"
+        ? now
+        : (input.participantState.eliminatedAt ?? null);
+    const finishedAt =
+      status === "finished" && input.participantState.status !== "finished"
+        ? now
+        : (input.participantState.finishedAt ?? null);
 
     return {
       ...input.participantState,
@@ -437,6 +570,8 @@ export class BattleService {
         input.comparison.acceptedLength,
         input.comparison.typedLength,
       ),
+      eliminatedAt,
+      finishedAt,
       lastInputAt: now,
       lastPenaltyIndex:
         input.comparison.typoIndex === null
@@ -480,6 +615,172 @@ export class BattleService {
       },
       ok: true,
     };
+  }
+
+  private buildGameResult(input: {
+    finishedAt: string;
+    gameId: string;
+    participants: BattleParticipantState[];
+    reason: BattleFinishReason;
+  }): BattleGameResult {
+    const rankings = this.rankParticipants(input.participants, input.reason);
+    const winner = rankings.find((ranking) => ranking.isWinner) ?? null;
+
+    return {
+      finishedAt: input.finishedAt,
+      gameId: input.gameId,
+      rankings,
+      reason: input.reason,
+      winnerParticipantId: winner?.participantId ?? null,
+    };
+  }
+
+  private resolveFinishReason(
+    currentGameState: CurrentGameState,
+    participants: BattleParticipantState[],
+  ): BattleFinishReason | null {
+    if (
+      participants.some(
+        (participant) => participant.status === "finished" || participant.progressPercent >= 100,
+      )
+    ) {
+      return "completed";
+    }
+
+    if (
+      participants.length > 0 &&
+      participants.every((participant) => participant.status === "eliminated")
+    ) {
+      return "all_eliminated";
+    }
+
+    if (this.isGameTimeExpired(currentGameState)) {
+      return "time_limit";
+    }
+
+    return null;
+  }
+
+  private rankParticipants(
+    participants: BattleParticipantState[],
+    reason: BattleFinishReason,
+  ): BattleRankingEntry[] {
+    const orderedParticipants =
+      reason === "completed"
+        ? this.rankCompletedGameParticipants(participants)
+        : reason === "all_eliminated"
+          ? [...participants].sort((left, right) => this.compareByEliminatedAtDesc(left, right))
+          : [...participants].sort((left, right) => this.compareByProgressDesc(left, right));
+
+    return orderedParticipants.map((participant, index) =>
+      this.toRankingEntry(participant, index + 1, index === 0),
+    );
+  }
+
+  private rankCompletedGameParticipants(participants: BattleParticipantState[]) {
+    const completedParticipants = participants
+      .filter(
+        (participant) => participant.status === "finished" || participant.progressPercent >= 100,
+      )
+      .sort((left, right) => this.compareByFinishedAtAsc(left, right));
+    const winner = completedParticipants[0];
+
+    if (!winner) {
+      return [...participants].sort((left, right) => this.compareByProgressDesc(left, right));
+    }
+
+    const rest = participants
+      .filter((participant) => participant.participantId !== winner.participantId)
+      .sort((left, right) => this.compareByProgressDesc(left, right));
+
+    return [winner, ...rest];
+  }
+
+  private toRankingEntry(
+    participant: BattleParticipantState,
+    rank: number,
+    isWinner: boolean,
+  ): BattleRankingEntry {
+    return {
+      acceptedLength: participant.acceptedLength,
+      accuracy: participant.accuracy,
+      eliminatedAt: participant.eliminatedAt ?? null,
+      finalStatus: this.getFinalStatus(participant, isWinner),
+      finishedAt: participant.finishedAt ?? null,
+      isWinner,
+      life: participant.life,
+      participantId: participant.participantId,
+      progressPercent: participant.progressPercent,
+      rank,
+      status: participant.status,
+      wpm: participant.wpm,
+    };
+  }
+
+  private getFinalStatus(participant: BattleParticipantState, isWinner: boolean) {
+    if (isWinner) {
+      return "winner";
+    }
+
+    if (participant.status === "finished") {
+      return "finished";
+    }
+
+    if (participant.status === "eliminated") {
+      return "eliminated";
+    }
+
+    return "playing";
+  }
+
+  private compareByFinishedAtAsc(left: BattleParticipantState, right: BattleParticipantState) {
+    return (
+      this.getTimestamp(left.finishedAt, Number.MAX_SAFE_INTEGER) -
+        this.getTimestamp(right.finishedAt, Number.MAX_SAFE_INTEGER) ||
+      this.compareByProgressDesc(left, right)
+    );
+  }
+
+  private compareByEliminatedAtDesc(left: BattleParticipantState, right: BattleParticipantState) {
+    return (
+      this.getTimestamp(right.eliminatedAt ?? right.lastInputAt, 0) -
+        this.getTimestamp(left.eliminatedAt ?? left.lastInputAt, 0) ||
+      this.compareByProgressDesc(left, right)
+    );
+  }
+
+  private compareByProgressDesc(left: BattleParticipantState, right: BattleParticipantState) {
+    return (
+      right.progressPercent - left.progressPercent ||
+      right.acceptedLength - left.acceptedLength ||
+      right.life - left.life ||
+      right.accuracy - left.accuracy ||
+      right.wpm - left.wpm ||
+      this.getTimestamp(left.lastInputAt, Number.MAX_SAFE_INTEGER) -
+        this.getTimestamp(right.lastInputAt, Number.MAX_SAFE_INTEGER) ||
+      left.participantId.localeCompare(right.participantId)
+    );
+  }
+
+  private getTimestamp(value: null | string | undefined, fallback: number) {
+    if (!value) {
+      return fallback;
+    }
+
+    const timestamp = Date.parse(value);
+
+    return Number.isNaN(timestamp) ? fallback : timestamp;
+  }
+
+  private isGameTimeExpired(currentGameState: CurrentGameState) {
+    if (!currentGameState.gameStartedAt) {
+      return false;
+    }
+
+    return (
+      Date.now() - new Date(currentGameState.gameStartedAt).getTime() >=
+      GAME_DURATION_SECONDS * 1000
+    );
   }
 
   private calculateAccuracy(acceptedLength: number, typedLength: number) {
@@ -543,6 +844,8 @@ export class BattleService {
     return {
       acceptedLength: 0,
       accuracy: 100,
+      eliminatedAt: null,
+      finishedAt: null,
       gameId: input.currentGameState.gameId,
       lastInputAt: null,
       lastPenaltyIndex: null,
