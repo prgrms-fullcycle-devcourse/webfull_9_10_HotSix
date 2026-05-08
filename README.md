@@ -1,79 +1,63 @@
 # Keyboard Warrior Battle Royale
 
-핫식스 팀의 `키보드 워리어 배틀로얄` 프로젝트 레포지토리입니다.
-
-## 프로젝트 소개
-
-타이핑 실력으로 배틀로얄을 펼치는 하드코어 웹게임 서비스입니다.
-
-## 프로젝트 목표
-
-- 실시간 입력 경쟁을 기반으로 한 배틀로얄 게임 구현
-- 프론트엔드와 백엔드를 분리한 모노레포 구조 운영
-- 공통 타입과 도메인 모델을 재사용할 수 있는 확장 가능한 기반 구성
+타이핑 실력으로 경쟁하는 실시간 배틀로얄 웹게임 프로젝트입니다. 이 저장소는 프론트엔드와 백엔드를 함께 관리하는 `pnpm workspace` 기반 모노레포입니다.
 
 ## 기술 스택
 
 ### 공통
 
-- Package Manager: `pnpm`
-- Language: `TypeScript`
+- `TypeScript`
+- `pnpm`
+- `turbo`
 
 ### Frontend
 
-- React
-- Tailwind CSS
-- React Query
-- Zustand
-- Vite
+- `React`
+- `Vite`
+- `Tailwind CSS`
+- `Zustand`
+- `TanStack Query`
+- `socket.io-client`
 
 ### Backend
 
-- NestJS
-- Socket.IO
-- Supabase
-- Redis
+- `NestJS`
+- `Socket.IO`
+- `Redis`
+- `Supabase`
 
-## 모노레포 구조
-
-이 저장소는 `pnpm workspace`와 `turbo`를 사용하는 모노레포입니다.
+## 저장소 구조
 
 ```text
 .
-├── apps/
-│   ├── backend/                  # NestJS + Socket.IO 서버
-│   │   ├── docs/                 # OpenAPI, 요구사항, ERD 문서
-│   │   ├── src/
-│   │   │   ├── common/           # 공통 상수
-│   │   │   ├── modules/
-│   │   │   │   ├── auth/         # 익명 사용자 생성, 토큰 재발급
-│   │   │   │   ├── battle/       # 실시간 배틀 소켓 게이트웨이
-│   │   │   │   ├── common/       # 데코레이터 등 모듈 공통 요소
-│   │   │   │   ├── docs/         # Swagger/문서 라우트
-│   │   │   │   ├── game-state/   # 임시 게임 상태 서비스
-│   │   │   │   ├── games/        # 현재 게임 조회 API
-│   │   │   │   ├── health/       # 헬스 체크
-│   │   │   │   ├── matchmaking/  # 대기방/입장 API
-│   │   │   │   ├── storage/      # Supabase, Redis 연결
-│   │   │   │   └── users/        # 내 정보, 대시보드 API
-│   │   │   ├── app.module.ts
-│   │   │   └── main.ts
-│   │   ├── package.json
-│   │   ├── tsconfig.build.json
-│   │   └── tsconfig.json
-│   └── frontend/                 # Vite + React 클라이언트
-│       ├── src/
-│       │   ├── stores/           # Zustand 상태 관리
-│       │   ├── App.tsx
-│       │   ├── main.tsx
-│       │   └── styles.css
-│       ├── index.html
-│       ├── package.json
-│       ├── tailwind.config.ts
-│       ├── tsconfig.json
-│       └── vite.config.ts
-├── packages/
-│   └── shared/                   # 공통 타입/모델 확장 영역
+├── apps
+│   ├── backend
+│   │   ├── docs
+│   │   └── src
+│   │       ├── common
+│   │       ├── docs
+│   │       ├── modules
+│   │       │   ├── auth
+│   │       │   ├── battle
+│   │       │   ├── game-state
+│   │       │   ├── games
+│   │       │   ├── health
+│   │       │   ├── match
+│   │       │   └── users
+│   │       └── storage
+│   └── frontend
+│       └── src
+│           ├── api
+│           ├── components
+│           ├── constants
+│           ├── hooks
+│           ├── pages
+│           ├── router
+│           ├── stores
+│           ├── types
+│           └── utils
+├── packages
+│   └── shared
 ├── package.json
 ├── pnpm-workspace.yaml
 └── turbo.json
@@ -87,88 +71,58 @@
 pnpm install
 ```
 
-### 2. 개발 서버 실행
+### 2. 환경 변수 설정
+
+프론트엔드와 백엔드 각각 `.env.example`을 참고해 `.env` 파일을 생성합니다.
+
+- [apps/frontend/.env.example](/Users/a2485/Documents/webfull_9_10_HotSix/apps/frontend/.env.example:1)
+- [apps/backend/.env.example](/Users/a2485/Documents/webfull_9_10_HotSix/apps/backend/.env.example:1)
+
+기본 예시:
+
+```env
+# apps/frontend/.env
+VITE_API_BASE_URL=http://localhost:3000
+VITE_SOCKET_URL=http://localhost:3000
+```
+
+```env
+# apps/backend/.env
+PORT=3000
+REDIS_URL=redis://localhost:6379
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+JWT_SECRET=
+ACCESS_TOKEN_TTL_SECONDS=900
+REFRESH_TOKEN_TTL_DAYS=30
+COOKIE_SECURE=false
+COOKIE_DOMAIN=
+```
+
+### 3. 개발 서버 실행
+
+전체 앱을 함께 실행:
 
 ```bash
 pnpm dev
 ```
 
-### 3. 접속 주소
-
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:3000`
-- Swagger UI: `http://localhost:3000/docs`
-- OpenAPI YAML: `http://localhost:3000/docs/openapi.yaml`
-
-- `pnpm dev` 실행이 환경에 따라 불안정하면 프론트와 백엔드를 각각 따로 실행해도 됩니다.
+앱별 개별 실행:
 
 ```bash
 pnpm --filter @keyboard-warrior/frontend dev
 pnpm --filter @keyboard-warrior/backend dev
 ```
 
-## 현재 아키텍처
+## 로컬 접속 주소
 
-- `apps/frontend`: Vite 기반 클라이언트 앱
-- `apps/backend`: NestJS 기반 REST API + Socket.IO 실시간 서버
-- `packages/shared`: 프론트/백엔드 공통 타입 및 도메인 모델 관리 영역
-
-## 앱별 구조
-
-### Frontend
-
-```text
-apps/frontend
-├── src
-│   ├── stores
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── styles.css
-├── index.html
-├── package.json
-├── tailwind.config.ts
-├── tsconfig.json
-└── vite.config.ts
-```
-
-### Backend
-
-```text
-apps/backend
-├── docs
-│   ├── erd.md
-│   ├── openapi.yaml
-│   └── requirements.md
-├── src
-│   ├── common
-│   │   └── constants
-│   ├── modules
-│   │   ├── auth
-│   │   ├── battle
-│   │   ├── common
-│   │   ├── docs
-│   │   ├── game-state
-│   │   ├── games
-│   │   ├── health
-│   │   ├── matchmaking
-│   │   ├── storage
-│   │   └── users
-│   ├── app.module.ts
-│   └── main.ts
-├── nest-cli.json
-├── package.json
-├── tsconfig.build.json
-└── tsconfig.json
-```
-
-## 환경 변수
-
-예시 파일:
-
-- [apps/frontend/.env.example](/Users/a2485/Documents/webfull_9_10_HotSix/apps/frontend/.env.example:1)
-- [apps/backend/.env.example](/Users/a2485/Documents/webfull_9_10_HotSix/apps/backend/.env.example:1)
-
-필요하면 각 앱 디렉터리에 `.env` 파일을 만들어 사용합니다.
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:3000`
+- Swagger UI: `http://localhost:3000/docs`
+- OpenAPI YAML: `http://localhost:3000/docs/openapi.yaml`
+- Requirements: `http://localhost:3000/docs/requirements`
+- ERD: `http://localhost:3000/docs/erd`
+- Redis Spec: `http://localhost:3000/docs/redis`
 
 ## 자주 사용하는 명령어
 
@@ -176,21 +130,46 @@ apps/backend
 pnpm dev
 pnpm build
 pnpm lint
+pnpm test
 pnpm format
 ```
 
-개별 앱 실행:
+앱별 명령어:
 
 ```bash
-pnpm --filter @keyboard-warrior/frontend dev
-pnpm --filter @keyboard-warrior/backend dev
 pnpm --filter @keyboard-warrior/frontend build
+pnpm --filter @keyboard-warrior/frontend lint
+
 pnpm --filter @keyboard-warrior/backend build
+pnpm --filter @keyboard-warrior/backend lint
+pnpm --filter @keyboard-warrior/backend test
 ```
+
+## 현재 백엔드 구성
+
+- `auth`: 게스트 로그인, 토큰 재발급, 로그아웃
+- `users`: 내 정보 조회/수정, 대시보드 조회
+- `match`: 대기방 입장과 현재 유저 목록 조회
+- `battle`: 실시간 타이핑 배틀 Socket.IO 게이트웨이
+- `games`: 현재 게임, 스코어보드, 관전자, 결과 조회
+- `game-state`: 게임 상태 저장/조회 로직
+- `storage`: Redis, Supabase 연결 모듈
+- `docs`: Swagger UI 및 문서 라우트
+
+## 문서 파일
+
+백엔드 문서 파일은 [apps/backend/docs](/Users/a2485/Documents/webfull_9_10_HotSix/apps/backend/docs) 아래에서 관리합니다.
+
+- `openapi.yaml`
+- `requirements.md`
+- `erd.md`
+- `redis-spec.md`
+- `redis-spec.html`
+- `supabase-schema.sql`
 
 ## 협업 메모
 
-- 프론트와 백엔드는 각각 `apps/frontend`, `apps/backend`에서 작업합니다.
-- 공통 타입이 필요하면 `packages/shared`에 추가합니다.
-- 빌드 결과물인 `dist`는 직접 수정하지 않고, 항상 `src` 기준으로 작업합니다.
-- 백엔드는 HTTP `controller`와 실시간 `gateway`를 기능에 따라 함께 사용할 수 있습니다.
+- 도메인 기능은 `apps/backend/src/modules` 아래에 둡니다.
+- 공통 코드와 인프라 코드는 `apps/backend/src/common`, `apps/backend/src/storage`, `apps/backend/src/docs`처럼 `modules` 밖으로 분리합니다.
+- 프론트/백엔드 공통 타입이 필요하면 `packages/shared`를 사용합니다.
+- 빌드 산출물은 수정하지 않고 항상 `src` 기준으로 작업합니다.
