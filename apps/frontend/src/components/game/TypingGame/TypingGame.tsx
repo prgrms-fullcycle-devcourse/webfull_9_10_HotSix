@@ -4,8 +4,19 @@ import { useEffect, useRef, useState } from "react";
 
 import HeartStatus from "@/components/game/HeartStatus";
 import { FONT_SIZE_CLASS } from "@/constants/game/font";
-import { useTypingSocket } from "@/hooks/useTypingSocket";
 import type { FontSize, MatchState } from "@/types";
+
+type TypingGameProps = {
+  prompt: string;
+  life: number;
+  onInputChange: (
+    input: string,
+    correctCount?: number,
+    completedTypingCount?: number,
+    completedCorrectCount?: number,
+  ) => void;
+  onWrongInput?: () => void;
+};
 
 function getMatchState(
   input: string | undefined,
@@ -27,42 +38,19 @@ function getMatchState(
   return "wrong";
 }
 
-const TypingGame = () => {
-  const lines = [
-    "동해물과 백두산이 마르고 닳도록",
-    "하느님이 보우하사 우리 나라 만세",
-    "무궁화 삼천리 화려강산",
-    "대한사람 대한으로 길이 보전하세",
-    "남산 위에 저 소나무 철갑을 두른 듯",
-    "바람 서리 불변함은 우리 기상일세",
-    "무궁화 삼천리 화려강산",
-    "대한사람 대한으로 길이 보전하세",
-    "가을 하늘 공활한데 높고 구름 없이",
-    "밝은 달은 우리 가슴 일편단심일세",
-    "무궁화 삼천리 화려강산",
-    "대한사람 대한으로 길이 보전하세",
-    "이 기상과 이 맘으로 충성을 다하여",
-    "괴로우나 즐거우나 나라 사랑하세",
-    "무궁화 삼천리 화려강산",
-    "대한사람 대한으로 길이 보전하세",
-  ];
+const TypingGame = ({ prompt, life, onInputChange, onWrongInput }: TypingGameProps) => {
+  const lines = prompt.split("\n");
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cursorRef = useRef<HTMLSpanElement | null>(null);
 
-  const startedAtRef = useRef(Date.now());
-
   const [lineIndex, setLineIndex] = useState(0);
   const [currentInput, setCurrentInput] = useState("");
-  const [life, setLife] = useState(3);
   const [fontSize] = useState<FontSize>("medium");
   const [isComposing, setIsComposing] = useState(false);
-
-  const { emitTypingProgress } = useTypingSocket();
-
-  const roomId = "room-1";
-  const playerId = "player-1";
+  const [completedTypingCount, setCompletedTypingCount] = useState(0);
+  const [completedCorrectCount, setCompletedCorrectCount] = useState(0);
 
   const visibleLines = lines.slice(lineIndex, lineIndex + 4);
   const currentLine = lines[lineIndex] ?? "";
@@ -95,16 +83,6 @@ const TypingGame = () => {
     }
   }, [currentInput.length]);
 
-  const emitCurrentProgress = (inputText: string) => {
-    emitTypingProgress({
-      roomId,
-      playerId,
-      targetText: currentLine,
-      inputText,
-      startedAt: startedAtRef.current,
-    });
-  };
-
   const handleCompositionStart = () => {
     setIsComposing(true);
   };
@@ -112,57 +90,82 @@ const TypingGame = () => {
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(false);
 
-    emitCurrentProgress(e.currentTarget.value);
+    const inputValue = e.currentTarget.value;
+
+    onInputChange(
+      inputValue,
+      getCorrectCount(inputValue),
+      completedTypingCount,
+      completedCorrectCount,
+    );
+  };
+
+  const getCorrectCount = (inputText: string) => {
+    return Array.from(inputText).reduce((count, char, index) => {
+      const targetChar = currentLine[index];
+
+      if (getMatchState(char, targetChar, false) === "correct") {
+        return count + 1;
+      }
+
+      return count;
+    }, 0);
   };
 
   const moveNextLine = () => {
+    const currentCorrectCount = getCorrectCount(currentInput);
+
+    setCompletedTypingCount((prev) => prev + currentInput.length);
+
+    setCompletedCorrectCount((prev) => prev + currentCorrectCount);
+
     setLineIndex((prev) => Math.min(prev + 1, lines.length));
+
     setCurrentInput("");
   };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
 
     if (newValue.includes("\n")) {
       moveNextLine();
+
       return;
     }
 
     const lastCharIndex = newValue.length - 1;
-
     const isLastIndex = lastCharIndex === currentInput.length;
 
     if (newValue.length > currentInput.length) {
       const currentChar = newValue[lastCharIndex];
-
       const targetChar = currentLine[lastCharIndex];
 
       if (getMatchState(currentChar, targetChar, isLastIndex) === "wrong") {
-        setLife((prev) => Math.max(prev - 1, 0));
+        onWrongInput?.();
       }
     }
-
     setCurrentInput(newValue);
 
     if (!isComposing) {
-      emitCurrentProgress(newValue);
+      onInputChange(
+        newValue,
+        getCorrectCount(newValue),
+        completedTypingCount,
+        completedCorrectCount,
+      );
     }
   };
 
   return (
-    <div className="flex min-w-0 w-full max-w-[916px] flex-col gap-4 border-[4px] border-black bg-[#454545] p-4 shadow-[8px_8px_0px_#000] sm:p-6">
-      <div className="flex justify-between items-center">
-        <div className="text-white text-xl">⌨️</div>
+    <div className="flex min-w-0 w-full max-w-[916px] flex-col gap-3 border-[4px] border-black bg-[#454545] p-3 shadow-[8px_8px_0px_#000] sm:gap-4 sm:p-4 lg:p-6">
+      <div className="flex items-center justify-between">
+        <div className="text-xl text-white">⌨️</div>
 
         <HeartStatus life={life} />
       </div>
 
       <div className="border-[4px] border-black bg-[#3b3b3b] p-6">
-        <div
-          ref={containerRef}
-          className="w-full h-[180px] sm:h-[220px] md:h-[240px] overflow-hidden"
-        >
-          <div className="whitespace-pre-wrap break-keep leading-[2.5] text-[24px]">
+        <div ref={containerRef} className="h-[clamp(160px,28vh,240px)] w-full overflow-hidden">
+          <div className="whitespace-pre-wrap break-keep text-[clamp(18px,2vw,24px)] leading-[2.5]">
             {visibleLines.map((line, visibleLineIndex) => {
               const isCurrentLine = visibleLineIndex === 0;
 
@@ -228,7 +231,7 @@ const TypingGame = () => {
         ref={inputRef}
         placeholder={isGameOver ? "Game Over" : "Start typing here..."}
         disabled={isGameOver}
-        className="w-full h-[60px] border-[4px] border-black bg-gray-200 px-4 py-4 outline-none resize-none disabled:bg-gray-400"
+        className="h-[clamp(48px,7vh,60px)] w-full resize-none border-[4px] border-black bg-gray-200 px-4 py-3 text-[clamp(16px,1.6vw,20px)] font-bold text-black placeholder:text-gray-400 outline-none disabled:bg-gray-400"
       />
     </div>
   );
