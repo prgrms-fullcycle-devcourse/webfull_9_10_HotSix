@@ -10,8 +10,6 @@ import { SupabaseService } from "../../storage/supabase/supabase.service";
 import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
 import type { RecordBattleResultInput } from "./dto/record-battle-result.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UserRowDto } from "./dto/userRow.dto";

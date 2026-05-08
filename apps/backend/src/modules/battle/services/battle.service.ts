@@ -1,6 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { createUuidV7 } from "../../../common/uuid";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { UsersService } from "../../users/users.service";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { BattleResultRepository } from "../repositories/battle-result.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -79,6 +83,8 @@ export class BattleService {
   constructor(
     private readonly battleStateRepository: BattleStateRepository,
     private readonly promptRepository: PromptRepository,
+    private readonly usersService: UsersService,
+    private readonly battleResultRepository: BattleResultRepository,
   ) {}
 
   async ensureCurrentGameState() {

@@ -23,7 +23,6 @@ export class BattleResultRepository {
       .from("games")
       .insert({
         ended_at: result.finishedAt,
-        prompt_id: currentGameState.prompt.id,
         started_at: currentGameState.gameStartedAt,
         total_players: String(result.rankings.length),
         winner_user_id: result.winnerParticipantId,
