@@ -1,7 +1,5 @@
 import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersRepository } from "./users.repository";

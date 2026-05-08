@@ -1,4 +1,3 @@
-// biome-ignore assist/source/organizeImports: reflect-metadata must be first import
 import "reflect-metadata";
 
 import { ValidationPipe } from "@nestjs/common";
