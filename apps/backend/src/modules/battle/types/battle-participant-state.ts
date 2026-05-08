@@ -5,6 +5,8 @@ export type BattleParticipantStatus = "playing" | "finished" | "eliminated" | "s
 export type BattleParticipantState = {
   acceptedLength: number;
   accuracy: number;
+  eliminatedAt?: null | string;
+  finishedAt?: null | string;
   gameId: string;
   lastInputAt: null | string;
   lastPenaltyIndex: null | number;
