@@ -1,61 +1,30 @@
 import { useState } from "react";
-import char1 from "@/assets/icons/char1.svg";
-import heart from "@/assets/icons/heart.svg";
 import type { PageMode } from "@/types";
-
-export interface Player {
-  id: string;
-  nickname: string;
-  progress: number; // 0~100
-  hearts: number; // 1~3
-}
-
-export interface ChatMessage {
-  id: string;
-  nickname: string;
-  message: string;
-  isSystem?: boolean;
-}
+import type { Player } from "@/types/game/player";
+import HeartIcons from "../../HeartIcons";
+import ProgressBar from "../../ProgressBar";
 
 interface UserListPanelProps {
   mode: PageMode;
   players?: Player[]; // 참가자 (game 모드)
   waiting?: Player[]; // 대기자 (공통)
-  messages?: ChatMessage[];
-  onSendChat?: (msg: string) => void;
 }
 
 const DUMMY_PLAYERS: Player[] = [
-  { id: "1", nickname: "닉네임 1", progress: 72, hearts: 3 },
-  { id: "2", nickname: "닉네임 2", progress: 45, hearts: 2 },
-  { id: "3", nickname: "닉네임 3", progress: 20, hearts: 0 },
+  { id: "1", nickname: "닉네임 1", progress: 72, life: 3 },
+  { id: "2", nickname: "닉네임 2", progress: 45, life: 2 },
+  { id: "3", nickname: "닉네임 3", progress: 20, life: 0 },
 ];
 
 const DUMMY_WAITING: Player[] = [
-  { id: "4", nickname: "닉네임 4", progress: 0, hearts: 3 },
-  { id: "5", nickname: "닉네임 5", progress: 0, hearts: 3 },
-  { id: "6", nickname: "닉네임 6", progress: 0, hearts: 3 },
-  { id: "7", nickname: "닉네임 7", progress: 0, hearts: 3 },
+  { id: "4", nickname: "닉네임 4", progress: 0, life: 3 },
+  { id: "5", nickname: "닉네임 5", progress: 0, life: 3 },
+  { id: "6", nickname: "닉네임 6", progress: 0, life: 3 },
+  { id: "7", nickname: "닉네임 7", progress: 0, life: 3 },
 ];
 
-const HeartIcons = ({ count }: { count: number }) => {
-  const hearts = Array.from({ length: count }, (_, i) => ({
-    id: i, // key용
-  }));
-
-  return (
-    <div className="flex gap-0.5 shrink-0">
-      {hearts.map((h) => (
-        <span key={h.id}>
-          <img src={heart} alt="heart" className="w-3" />
-        </span>
-      ))}
-    </div>
-  );
-};
-
 const PlayerCard = ({ player }: { player: Player }) => {
-  const isDead = player.hearts === 0;
+  const isDead = player.life === 0;
 
   return (
     <div
@@ -68,28 +37,10 @@ const PlayerCard = ({ player }: { player: Player }) => {
         <span className="text-xs font-medium text-text truncate max-w-[65%]">
           {player.nickname}
         </span>
-        <HeartIcons count={player.hearts} />
+        <HeartIcons life={player.life} size="sm" />
       </div>
 
-      {/* 차량 아이콘 */}
-      <div className="relative h-3 mb-4 z-10">
-        <div
-          className="absolute -top-0.5 transition-all duration-500"
-          style={{ left: `calc(${player.progress}% - 18px)` }}
-        >
-          <span>
-            <img src={char1} alt="car" className="w-9" />
-          </span>
-        </div>
-      </div>
-
-      {/* 진행바 */}
-      <div className="relative h-1 bg-black/30 overflow-hidden z-0">
-        <div
-          className="absolute inset-y-0 left-0 bg-state-active transition-all duration-500"
-          style={{ width: `${player.progress}%` }}
-        />
-      </div>
+      <ProgressBar progress={player.progress} />
     </div>
   );
 };
@@ -125,7 +76,7 @@ const TabItem = ({
     >
       <div
         className={`w-full h-full flex items-center justify-center text-caption font-normal transition-colors
-                        ${active ? "bg-surface-main" : "bg-black hover:bg-black/80"}`}
+                        ${active ? "bg-surface-main" : "bg-surface-sub"}`}
         style={{
           clipPath: "polygon(0% 0%, 85% 0%, 100% 100%, 0% 100%)",
         }}
@@ -136,14 +87,14 @@ const TabItem = ({
   );
 };
 
-const UserListPanel = ({ mode, players, waiting, messages, onSendChat }: UserListPanelProps) => {
+const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
   const displayPlayers = players ?? DUMMY_PLAYERS;
   const displayWaiting = waiting ?? DUMMY_WAITING;
 
   // ── game 모드: 참가자 | 대기자
   // ── lobby / watch 모드: 대기자 | 채팅
 
-  type TabType = "players" | "waiting" | "chat";
+  type TabType = "players" | "waiting";
   const [currentTab, setCurrentTab] = useState<TabType>(mode === "game" ? "players" : "waiting");
 
   return (
@@ -175,16 +126,6 @@ const UserListPanel = ({ mode, players, waiting, messages, onSendChat }: UserLis
               count={displayWaiting.length}
               onClick={() => setCurrentTab("waiting")}
             />
-
-            {/* 나중에 채팅 추가? */}
-            {/* 
-                        <TabItem 
-                            active={currentTab === 'chat'} 
-                            label="채팅" 
-                            count={0} 
-                            onClick={() => setCurrentTab('chat')} 
-                        />
-                        */}
           </>
         )}
       </div>
