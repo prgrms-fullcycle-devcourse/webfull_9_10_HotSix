@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { v7 as uuidv7 } from "uuid";
+import { createUuidV7 } from "../../../common/uuid";
 import type { BattleReadyDto } from "../dto/battle-ready.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
@@ -8,7 +8,8 @@ import { PromptRepository } from "../repositories/prompt.repository";
 import type { BattleParticipantState } from "../types/battle-participant-state";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
-const WAITING_DURATION_SECONDS = 15 * 60;
+// const WAITING_DURATION_SECONDS = 15 * 60;
+const WAITING_DURATION_SECONDS = 15;
 const DEFAULT_PLAYER_LIFE = 3;
 
 type BattleInputValidationInput = {
@@ -241,6 +242,10 @@ export class BattleService {
     return this.updateConnectionCount(currentGameState, assignedRole, -1);
   }
 
+  async handleDisconnectUser(userId: string) {
+    await this.battleStateRepository.handleDisconnectUser(userId);
+  }
+
   async validateInput(input: BattleInputValidationInput): Promise<BattleInputValidationResult> {
     if (input.assignedRole !== "player") {
       return this.rejectInput("NOT_PLAYER", "플레이어만 입력할 수 있습니다.");
@@ -296,6 +301,7 @@ export class BattleService {
     });
 
     await this.battleStateRepository.saveParticipantState(nextParticipantState);
+    await this.battleStateRepository.updateScoreboard(nextParticipantState);
 
     return this.buildAcceptedInputResult({
       currentGameState,
@@ -331,6 +337,7 @@ export class BattleService {
     };
 
     await this.battleStateRepository.saveCurrentGameState(startedGameState);
+    await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
 
     return startedGameState;
   }
@@ -348,6 +355,7 @@ export class BattleService {
     };
 
     await this.battleStateRepository.saveCurrentGameState(restartedWaitingGameState);
+    await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
 
     return restartedWaitingGameState;
   }
@@ -377,7 +385,7 @@ export class BattleService {
   }
 
   private async createWaitingGameState(now: Date) {
-    const gameId = uuidv7();
+    const gameId = createUuidV7();
     const prompt = await this.promptRepository.getRandomPrompt();
     const waitingStartedAt = now.toISOString();
     const waitingEndsAt = new Date(now.getTime() + WAITING_DURATION_SECONDS * 1000).toISOString();
@@ -390,7 +398,7 @@ export class BattleService {
       hasTenSecondNoticeSent: false,
       phase: "waiting" as const,
       playerCount: 0,
-      minPlayers: 4,
+      minPlayers: 1, // default = 4
       prompt,
       spectatorCount: 0,
       updatedAt: waitingStartedAt,
@@ -435,6 +443,7 @@ export class BattleService {
           ? input.participantState.lastPenaltyIndex
           : input.comparison.typoIndex,
       life,
+      wpm: this.calculateWpm(input.comparison.acceptedLength, input.currentGameState.gameStartedAt),
       progressPercent: this.calculateProgressPercent(
         input.comparison.acceptedLength,
         input.comparison.expectedLength,
@@ -539,12 +548,27 @@ export class BattleService {
       lastPenaltyIndex: null,
       life: DEFAULT_PLAYER_LIFE,
       participantId: input.participantId,
+      wpm: 0,
       progressPercent: 0,
       role: input.assignedRole,
       socketId: input.socketId,
       status: input.assignedRole === "player" ? "playing" : "spectating",
       typoCount: 0,
     };
+  }
+
+  private calculateWpm(acceptedLength: number, gameStartedAt: null | string) {
+    if (!gameStartedAt || acceptedLength === 0) {
+      return 0;
+    }
+
+    const elapsedMinutes = (Date.now() - new Date(gameStartedAt).getTime()) / 1000 / 60;
+
+    if (elapsedMinutes <= 0) {
+      return 0;
+    }
+
+    return Math.round((acceptedLength / 5 / elapsedMinutes) * 10) / 10;
   }
 
   private getTextLength(value: string) {

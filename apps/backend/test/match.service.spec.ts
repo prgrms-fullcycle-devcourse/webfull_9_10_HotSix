@@ -2,12 +2,18 @@ jest.mock("node:crypto", () => ({
   randomUUID: jest.fn(() => "socket-token-id"),
 }));
 
+jest.mock("../src/common/uuid", () => ({
+  createUuidV7: jest.fn(() => "uuid-v7"),
+}));
+
+// biome-ignore assist/source/organizeImports: <explanation>
 import {
   BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
   getBattleSocketAuthTokenKey,
 } from "../src/modules/battle/constants/battle-redis-keys";
+
 import { MatchService } from "../src/modules/match/match.service";
-import type { RedisService } from "../src/modules/storage/redis/redis.service";
+import type { RedisService } from "../src/storage/redis/redis.service";
 import type { UsersRepository } from "../src/modules/users/users.repository";
 
 describe("MatchService", () => {

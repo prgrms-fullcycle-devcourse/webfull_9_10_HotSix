@@ -1,8 +1,7 @@
+// biome-ignore assist/source/organizeImports: <explanation>
 import { randomUUID } from "node:crypto";
 
 import { Injectable } from "@nestjs/common";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { RedisService } from "../../storage/redis/redis.service";
 import {
   BATTLE_SOCKET_AUTH_TOKEN_TTL_SECONDS,
   getBattleSocketAuthTokenKey,
@@ -11,6 +10,8 @@ import {
 import { UsersRepository } from "../users/users.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchPlayerDto } from "./dto/match-player.dto";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { RedisService } from "../../storage/redis/redis.service";
 
 @Injectable()
 export class MatchService {
@@ -68,7 +69,6 @@ export class MatchService {
     const players = await Promise.all(
       userIds.map(async (userId) => {
         const profile = await this.redis.instance.hgetall(`lobby:player:${userId}`);
-        const gameData = await this.redis.instance.hgetall(`lobby:player:${userId}:state`);
         if (!profile || Object.keys(profile).length === 0) return null;
 
         return {
@@ -78,26 +78,10 @@ export class MatchService {
           status: profile.status,
           role: profile.role as "player" | "spectator",
           joinedAt: profile.joinedAt,
-
-          progressPercent: Number(gameData?.progress ?? 0),
-          rank: Number(gameData?.rank ?? 0),
-          wpm: Number(gameData?.wpm ?? 0),
-          life: Number(gameData?.life ?? 0),
-          accuracy: Number(gameData?.accuracy ?? 0),
-          isEliminated: gameData?.isEliminated === "true",
         };
       }),
-    ).then((players) =>
-      players
-        .filter((p): p is MatchPlayerDto => p !== null)
-        .sort((a, b) => {
-          if (a.rank === 0 && b.rank === 0) return 0;
-          if (a.rank === 0) return 1; // rank 0은 뒤로
-          if (b.rank === 0) return -1;
-          return a.rank - b.rank;
-        }),
     );
 
-    return players;
+    return players.filter((p): p is MatchPlayerDto => p !== null);
   }
 }

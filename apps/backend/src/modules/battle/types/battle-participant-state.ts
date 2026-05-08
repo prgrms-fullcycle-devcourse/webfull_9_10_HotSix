@@ -9,6 +9,7 @@ export type BattleParticipantState = {
   lastInputAt: null | string;
   lastPenaltyIndex: null | number;
   life: number;
+  wpm: number;
   participantId: string;
   progressPercent: number;
   role: ConnectionRole;

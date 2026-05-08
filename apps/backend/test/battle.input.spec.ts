@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 
-jest.mock("uuid", () => ({
-  v7: jest.fn(() => "uuid-v7"),
+jest.mock("../src/common/uuid", () => ({
+  createUuidV7: jest.fn(() => "uuid-v7"),
 }));
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";
@@ -50,6 +50,7 @@ function createParticipantState(
     lastInputAt: null,
     lastPenaltyIndex: null,
     life: 3,
+    wpm: 0,
     participantId: "socket-1",
     progressPercent: 0,
     role: "player",
@@ -66,10 +67,12 @@ function createService(input: {
   saveParticipantState?: jest.Mock;
 }) {
   const saveParticipantState = input.saveParticipantState ?? jest.fn();
+  const updateScoreboard = jest.fn().mockResolvedValue(undefined);
   const repository = {
     getCurrentGameState: jest.fn().mockResolvedValue(input.currentGameState ?? createGameState()),
     getParticipantState: jest.fn().mockResolvedValue(input.participantState ?? null),
     saveParticipantState,
+    updateScoreboard,
   } as unknown as BattleStateRepository;
 
   return {

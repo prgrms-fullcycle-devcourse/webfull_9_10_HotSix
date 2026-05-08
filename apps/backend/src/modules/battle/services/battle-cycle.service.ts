@@ -1,6 +1,6 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { v7 as uuidv7 } from "uuid";
 import { SOCKET_EVENTS } from "../../../common/constants/socket-events";
+import { createUuidV7 } from "../../../common/uuid";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { BattleStateRepository } from "../repositories/battle-state.repository";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -57,7 +57,7 @@ export class BattleCycleService implements OnModuleDestroy, OnModuleInit {
 
   private async handleTimerTick() {
     const hasLock = await this.battleStateRepository.acquireTimerLock(
-      uuidv7(),
+      createUuidV7(),
       TIMER_LOCK_TTL_SECONDS,
     );
 

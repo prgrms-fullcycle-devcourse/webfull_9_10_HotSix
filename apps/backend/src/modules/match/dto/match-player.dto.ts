@@ -5,10 +5,4 @@ export type MatchPlayerDto = {
   status: string;
   role: "player" | "spectator";
   joinedAt: string;
-  progressPercent: number;
-  rank: number;
-  wpm: number;
-  life: number;
-  accuracy: number;
-  isEliminated: boolean;
 };

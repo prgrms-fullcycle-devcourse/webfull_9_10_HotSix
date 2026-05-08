@@ -15,5 +15,6 @@ import { BattleCycleService } from "./services/battle-cycle.service";
     BattleStateRepository,
     PromptRepository,
   ],
+  exports: [BattleService],
 })
 export class BattleModule {}

@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 
-jest.mock("uuid", () => ({
-  v7: jest.fn(() => "uuid-v7"),
+jest.mock("../src/common/uuid", () => ({
+  createUuidV7: jest.fn(() => "uuid-v7"),
 }));
 
 import { SOCKET_EVENTS } from "../src/common/constants/socket-events";
@@ -192,6 +192,7 @@ describe("BattleGateway", () => {
     const battleService = {
       buildStatePayload,
       unregisterConnection,
+      handleDisconnectUser: jest.fn(),
     } as unknown as BattleService;
     const gateway = new BattleGateway(battleService, {} as BattleBroadcastService);
     const { emit, server } = createServer();
