@@ -8,6 +8,7 @@ import {
 import { RedisService } from "../../storage/redis/redis.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { SupabaseService } from "../../storage/supabase/supabase.service";
+import type { BattleRankingEntry } from "../battle/types/battle-game-result";
 
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchService } from "../match/match.service";
@@ -177,6 +178,19 @@ export class GameStateService {
 
   async getCurrentScoreboard() {
     const currentGameId = await this.redisService.instance.get("battle:current-game-id");
+    const rawGameState = await this.redisService.instance.get(`battle:game:${currentGameId}:state`);
+
+    if (rawGameState) {
+      const gameState = JSON.parse(rawGameState) as {
+        phase?: string;
+        rankings?: BattleRankingEntry[];
+      };
+
+      if (gameState.phase === "finished" && Array.isArray(gameState.rankings)) {
+        return this.getFinishedScoreboard(gameState.rankings);
+      }
+    }
+
     const rows = await this.redisService.instance.zrevrange(
       `battle:game:${currentGameId}:scoreboard`,
       0,
@@ -233,6 +247,36 @@ export class GameStateService {
     );
 
     return players.filter((p): p is NonNullable<typeof p> => p !== null);
+  }
+
+  private async getFinishedScoreboard(rankings: BattleRankingEntry[]) {
+    const players = await Promise.all(
+      rankings.map(async (ranking) => {
+        const profile = await this.redisService.instance.hgetall(
+          `lobby:player:${ranking.participantId}`,
+        );
+
+        return {
+          userId: ranking.participantId,
+          nickname: profile.nickname,
+          avatarUrl: profile.avatarUrl,
+          status: ranking.status,
+          role: "player" as const,
+          joinedAt: profile.joinedAt,
+          progressPercent: ranking.progressPercent,
+          rank: ranking.rank,
+          wpm: ranking.wpm,
+          life: ranking.life,
+          accuracy: ranking.accuracy,
+          isEliminated: ranking.status === "eliminated",
+          acceptedLength: ranking.acceptedLength,
+          finalStatus: ranking.finalStatus,
+          isWinner: ranking.isWinner,
+        };
+      }),
+    );
+
+    return players;
   }
 
   async getLatestGameResult() {
