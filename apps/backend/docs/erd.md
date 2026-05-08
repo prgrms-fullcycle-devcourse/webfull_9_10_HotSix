@@ -62,9 +62,9 @@ Table games {
 
 Table participants {
   id integer [primary key]
-  game_id integer [unique, ref: - games.id]
-  chat_id integer [unique, ref: - chats.id]
-  user_id integer [unique, ref: - users.id]
+  game_id integer [ref: > games.id]
+  chat_id integer [ref: > chats.id]
+  user_id integer [ref: > users.id]
   final_rank integer
   is_winner boolean
   is_suvived boolean
@@ -90,7 +90,7 @@ Table chats {
 erDiagram
     USERS ||--|| USER_STATS : has
     USERS ||--|| REFRESH_TOKENS : owns
-    USERS ||--o| PARTICIPANTS : plays_as
+    USERS ||--o{ PARTICIPANTS : plays_as
     PROMPTS ||--o| GAMES : assigned_to
     GAMES ||--o| PARTICIPANTS : has
     CHATS ||--o| PARTICIPANTS : maps_to
@@ -151,9 +151,9 @@ erDiagram
 
     PARTICIPANTS {
       int id PK
-      int game_id UK,FK
-      int chat_id UK,FK
-      int user_id UK,FK
+      int game_id FK
+      int chat_id FK
+      int user_id FK
       int final_rank
       boolean is_winner
       boolean is_suvived

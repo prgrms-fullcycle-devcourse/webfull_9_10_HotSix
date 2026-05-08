@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { RecordBattleResultInput } from "./dto/record-battle-result.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -23,6 +24,11 @@ export class UsersService {
   async deleteMyProfile(userId: string) {
     return this.usersRepository.deleteGuestUser(userId);
   }
+
+  async recordBattleResults(results: RecordBattleResultInput[]) {
+    return this.usersRepository.recordBattleResults(results);
+  }
+
   async createGuestUser() {
     const nickname = this.buildRandomNickname();
     const avatarUrl = this.buildRandomAvatarUrl();

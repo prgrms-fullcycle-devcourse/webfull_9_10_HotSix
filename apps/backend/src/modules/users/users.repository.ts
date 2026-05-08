@@ -8,6 +8,7 @@ import {
 import { SupabaseService } from "../../storage/supabase/supabase.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
+import type { RecordBattleResultInput } from "./dto/record-battle-result.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -202,6 +203,48 @@ export class UsersRepository {
     };
   }
 
+  async recordBattleResults(results: RecordBattleResultInput[]) {
+    await Promise.all(results.map((result) => this.recordBattleResult(result)));
+  }
+
+  async recordBattleResult(input: RecordBattleResultInput) {
+    const { data: currentStats, error: findStatsError } = await this.supabaseService.instance
+      .from("user_stats")
+      .select("*")
+      .eq("user_id", input.userId)
+      .maybeSingle<UserStatsDto>();
+
+    if (findStatsError) {
+      throw new InternalServerErrorException("유저 통계 조회에 실패했습니다.");
+    }
+
+    const totalGames = currentStats?.total_games ?? 0;
+    const nextTotalGames = totalGames + 1;
+    const totalWordCount = currentStats?.total_word_count ?? 0;
+    const nextTotalWordCount = totalWordCount + Math.max(0, input.acceptedLength);
+    const totalPlayCount = Math.max(currentStats?.total_play_count ?? 0, totalGames);
+
+    const updatePayload = {
+      user_id: input.userId,
+      total_games: nextTotalGames,
+      wins: (currentStats?.wins ?? 0) + (input.isWinner ? 1 : 0),
+      wpm: this.calculateNextAverage(currentStats?.wpm ?? 0, totalGames, input.wpm),
+      avg_rank: this.calculateNextAverage(currentStats?.avg_rank ?? 0, totalGames, input.rank),
+      avg_word_count: Math.round(nextTotalWordCount / nextTotalGames),
+      total_word_count: nextTotalWordCount,
+      total_play_count: totalPlayCount + 1,
+      updated_at: Date.now(),
+    };
+
+    const { error: updateStatsError } = await this.supabaseService.instance
+      .from("user_stats")
+      .upsert(updatePayload, { onConflict: "user_id" });
+
+    if (updateStatsError) {
+      throw new InternalServerErrorException("유저 통계 저장에 실패했습니다.");
+    }
+  }
+
   private toUserProfile(row: UserRowDto) {
     return {
       id: row.id,
@@ -209,5 +252,9 @@ export class UsersRepository {
       avatarUrl: row.avatar_url,
       createdAt: row.created_at,
     };
+  }
+
+  private calculateNextAverage(currentAverage: number, totalGames: number, gameValue: number) {
+    return Math.round((currentAverage * totalGames + gameValue) / (totalGames + 1));
   }
 }
