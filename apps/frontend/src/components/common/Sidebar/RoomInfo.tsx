@@ -12,7 +12,7 @@ interface GameStats {
 }
 
 interface RoomInfoProps {
-  mode: "game" | "lobby" | "watch";
+  mode: "game" | "lobby" | "watch" | "waiting";
   stats?: RoomStats | GameStats; // ← stats를 props로 받기
 }
 

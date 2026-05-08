@@ -13,13 +13,28 @@ function StatusItem({ label, value, unit, color }: StatusItemProps) {
   );
 }
 
-export default function GameProgress({ typingCount, accuracy, time }: GameProgressProps) {
+export default function GameProgress({
+  typingCount,
+  accuracy,
+  time,
+  isWaiting = false,
+}: GameProgressProps) {
   return (
     <section className="w-full max-w-[916px] border-4 border-black bg-[#454545] px-4 py-4 shadow-[8px_8px_0_#000] md:px-[22px] md:py-[19px]">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
-        <StatusItem label="타수" value={typingCount} unit="타" color="text-red-400" />
-        <StatusItem label="정확도" value={accuracy} unit="%" color="text-emerald-400" />
-        <StatusItem label="시간" value={time} color="text-yellow-300" />
+        {isWaiting ? (
+          <>
+            <StatusItem label="우승자" value="닉네임1" color="text-yellow-400" />
+            <StatusItem label="참여자" value={25} unit="명" color="text-cyan-400" />
+            <StatusItem label="시간" value={time} color="text-emerald-400" />
+          </>
+        ) : (
+          <>
+            <StatusItem label="타수" value={typingCount} unit="타" color="text-red-400" />
+            <StatusItem label="정확도" value={accuracy} unit="%" color="text-emerald-400" />
+            <StatusItem label="시간" value={time} color="text-yellow-300" />
+          </>
+        )}
       </div>
     </section>
   );
