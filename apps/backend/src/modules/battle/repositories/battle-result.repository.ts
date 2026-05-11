@@ -26,6 +26,7 @@ export class BattleResultRepository {
         started_at: currentGameState.gameStartedAt,
         total_players: String(result.rankings.length),
         winner_user_id: result.winnerParticipantId,
+        id: result.gameId,
       })
       .select("id")
       .single<SavedGameRow>();
@@ -55,6 +56,7 @@ export class BattleResultRepository {
       );
 
     if (participantsError) {
+      console.log(participantsError);
       throw new InternalServerErrorException("참가자 결과 저장에 실패했습니다.");
     }
 
