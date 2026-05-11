@@ -16,16 +16,16 @@ import { RedisService } from "../../storage/redis/redis.service";
 @Injectable()
 export class MatchService {
   constructor(
-    private readonly redis: RedisService,
+    private readonly redisService: RedisService,
     private readonly usersRepository: UsersRepository,
   ) {}
 
   async joinGame(userId: string) {
     const user = await this.usersRepository.findById(userId);
 
-    const currentGameId = await this.redis.instance.get("battle:current-game-id");
+    const currentGameId = await this.redisService.instance.get("battle:current-game-id");
     const rawGamestate = currentGameId
-      ? await this.redis.instance.get(`battle:game:${currentGameId}:state`)
+      ? await this.redisService.instance.get(`battle:game:${currentGameId}:state`)
       : null;
 
     const gameState = rawGamestate ? JSON.parse(rawGamestate) : null;
@@ -35,8 +35,8 @@ export class MatchService {
     const status = gameStatus === "in_progress" ? "spectating" : "waiting";
     const socketAuthToken = `ws_tk_${randomUUID()}`;
 
-    await this.redis.instance.sadd("lobby:players", userId);
-    await this.redis.instance.hset(
+    await this.redisService.instance.sadd("lobby:players", userId);
+    await this.redisService.instance.hset(
       `lobby:player:${userId}`,
       "nickname",
       user.nickname,
@@ -49,7 +49,7 @@ export class MatchService {
       "joinedAt",
       new Date().toISOString(),
     );
-    await this.redis.instance.set(
+    await this.redisService.instance.set(
       getBattleSocketAuthTokenKey(socketAuthToken),
       JSON.stringify({
         issuedAt: new Date().toISOString(),
@@ -69,13 +69,13 @@ export class MatchService {
   }
 
   async getAllUsers(): Promise<MatchPlayerDto[]> {
-    const userIds = await this.redis.instance.smembers("lobby:players");
+    const userIds = await this.redisService.instance.smembers("lobby:players");
 
     if (userIds.length === 0) return [];
 
     const players = await Promise.all(
       userIds.map(async (userId) => {
-        const profile = await this.redis.instance.hgetall(`lobby:player:${userId}`);
+        const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
         if (!profile || Object.keys(profile).length === 0) return null;
 
         return {

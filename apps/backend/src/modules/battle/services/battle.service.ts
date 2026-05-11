@@ -275,6 +275,10 @@ export class BattleService {
       );
     }
 
+    if (input.participantId) {
+      await this.battleStateRepository.removeLobbyEntry(input.participantId);
+    }
+
     return this.updateConnectionCount(currentGameState, assignedRole, -1);
   }
 
@@ -914,7 +918,7 @@ export class BattleService {
       return 0;
     }
 
-    return Math.round((acceptedLength / 5 / elapsedMinutes) * 10) / 10;
+    return Math.round((acceptedLength / 2.5 / elapsedMinutes) * 10) / 10;
   }
 
   private getTextLength(value: string) {
