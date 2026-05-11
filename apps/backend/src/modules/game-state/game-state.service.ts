@@ -259,11 +259,7 @@ export class GameStateService {
       gameId: game.id,
       startedAt: game.started_at,
       endedAt: game.ended_at,
-      winner: {
-        userId: participants[0]?.user_id ?? "",
-        nickname: participants[0]?.users?.nickname,
-        avatarUrl: participants[0]?.users?.avatar_url,
-      },
+      winner: participants[0]?.users?.nickname ?? "",
       rankings: participants,
     };
   }
