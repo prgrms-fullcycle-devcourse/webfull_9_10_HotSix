@@ -146,18 +146,23 @@ export class BattleStateRepository {
 
   async resetPlayerStatus(gameId: string) {
     if (!gameId) return;
-    const userIds = await this.redisService.instance.smembers("lobby:players");
 
     await this.redisService.instance.del(`battle:game:${gameId}:scoreboard`);
 
-    await Promise.all(
-      userIds.map(async (userId) => {
-        const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
+    const conenctionKey = await this.redisService.instance.keys(
+      `battle:game:${gameId}:active-connection:*`,
+    );
 
-        if (profile?.role !== "player") {
+    await Promise.all(
+      conenctionKey.map(async (key) => {
+        const raw = await this.redisService.instance.get(key);
+        if (!raw) return;
+
+        const connection = JSON.parse(raw) as BattleActiveConnection;
+
+        if (connection.assignedRole !== "player") {
           return;
         }
-        const previousState = await this.getParticipantState(gameId, userId);
 
         const nextState: BattleParticipantState = {
           acceptedLength: 0,
@@ -168,18 +173,28 @@ export class BattleStateRepository {
           lastInputAt: null,
           lastPenaltyIndex: null,
           life: 3,
-          participantId: userId,
+          participantId: connection.participantId,
           progressPercent: 0,
           role: "player",
-          wpm: 0,
-          socketId: previousState?.socketId ?? profile.socketId ?? "",
+          socketId: connection.socketId,
           status: "playing",
           typoCount: 0,
+          wpm: 0,
         };
+
         await this.saveParticipantState(nextState);
-        await this.redisService.instance.zadd(`battle:game:${gameId}:scoreboard`, 0, userId);
+        await this.redisService.instance.zadd(
+          `battle:game:${gameId}:scoreboard`,
+          0,
+          connection.participantId,
+        );
       }),
     );
+  }
+
+  async removeLobbyEntry(userId: string) {
+    await this.redisService.instance.srem("lobby:players", userId);
+    await this.redisService.instance.del(`lobby:player:${userId}`);
   }
 
   async handleDisconnectUser(userId: string) {

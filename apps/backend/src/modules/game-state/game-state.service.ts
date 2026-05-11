@@ -9,7 +9,6 @@ import { RedisService } from "../../storage/redis/redis.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { SupabaseService } from "../../storage/supabase/supabase.service";
 import type { BattleRankingEntry } from "../battle/types/battle-game-result";
-
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { MatchService } from "../match/match.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -48,61 +47,6 @@ export class GameStateService {
     }
 
     return this.toParticipant(data);
-  }
-
-  async saveGameResult() {
-    const gameData = await this.getCurrentGame();
-    // 채팅 부분의 Database가 없어서 미뤄짐
-    /*
-    const chatData = await this.redisService.instance.lrange(`game:chat`, 0, -1);
-    */
-    if (!gameData || gameData.participants.length === 0) {
-      throw new BadRequestException("저장할 정보가 없습니다.");
-    }
-
-    const { error: gameError } = await this.supabaseService.instance.from("games").insert({
-      id: gameData.game.id,
-      status: gameData.game.phase,
-      started_at: gameData.game.startedAt,
-      ended_at: new Date().toISOString(),
-      total_players: gameData.participants.filter((p) => p.role === "player").length,
-      winner_user_id: gameData.participants[0]?.userId ?? null,
-    });
-
-    if (gameError) {
-      throw new InternalServerErrorException("게임 정보 저장에 실패했습니다.");
-    }
-
-    await Promise.all(
-      gameData.participants
-        .filter((p) => p.role === "player")
-        .map(async (p) => {
-          const { error } = await this.supabaseService.instance.from("participants").insert({
-            game_id: gameData.game.id,
-            user_id: p.userId,
-            final_rank: p.rank,
-            is_winner: p.rank === 1,
-            is_survived: !p.isEliminated,
-            life: p.life,
-            wpm: p.wpm,
-            accuracy: p.accuracy,
-            created_at: new Date().toISOString(),
-          });
-
-          if (error) {
-            throw new InternalServerErrorException("참가자 저장에 실패했습니다.");
-          }
-        }),
-    );
-    // 채팅 부분의 Database가 없어서 미뤄짐
-    /*
-    await Promise.all(
-      chatData.map((raw) => {
-        const msg = JSON.parse(raw);
-        return this.supabaseService.instance.from("")
-      })
-    )
-    */
   }
 
   async getCurrentGame() {
@@ -319,11 +263,11 @@ export class GameStateService {
       rankings: participants,
     };
   }
+
   private toParticipant(row: ParticipantDto) {
     return {
       userId: row.user_id,
       gameId: row.game_id,
-      chatId: row.chat_id,
       finalRank: row.final_rank,
       isWinner: row.is_winner,
       isSurvived: row.is_survived,

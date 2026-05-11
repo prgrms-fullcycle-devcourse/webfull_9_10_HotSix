@@ -18,7 +18,6 @@ import type { UsersRepository } from "../src/modules/users/users.repository";
 
 describe("MatchService", () => {
   it("stores a short-lived socket auth token when a user joins the game", async () => {
-    const hget = jest.fn().mockResolvedValue("waiting");
     const hset = jest.fn();
     const sadd = jest.fn();
     const set = jest.fn();
@@ -30,10 +29,10 @@ describe("MatchService", () => {
     } as unknown as UsersRepository;
     const redisService = {
       instance: {
-        hget,
         hset,
         sadd,
         set,
+        get: jest.fn().mockResolvedValue(null), // currentGameId 조회
       },
     } as unknown as RedisService;
     const service = new MatchService(redisService, usersRepository);

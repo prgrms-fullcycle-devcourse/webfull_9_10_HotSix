@@ -17,10 +17,12 @@ describe("UsersRepository battle stats", () => {
     const eq = jest.fn(() => ({ maybeSingle }));
     const select = jest.fn(() => ({ eq }));
     const upsert = jest.fn().mockResolvedValue({ error: null });
-    const from = jest.fn(() => ({
-      select,
-      upsert,
-    }));
+    let callCount = 0;
+    const from = jest.fn(() => {
+      callCount++;
+      if (callCount === 1) return { select };
+      return { upsert };
+    });
     const repository = new UsersRepository({
       instance: {
         from,

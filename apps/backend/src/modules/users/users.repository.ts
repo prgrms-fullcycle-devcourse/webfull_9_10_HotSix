@@ -10,8 +10,6 @@ import { SupabaseService } from "../../storage/supabase/supabase.service";
 import { CreateGuestUserInput } from "./dto/create-guest-user.dto";
 import type { RecordBattleResultInput } from "./dto/record-battle-result.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { UpdateDashboardInput } from "./dto/update-dashboard.dto";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UpdateMyProfileInput } from "./dto/update-my-profile.dto";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UserRowDto } from "./dto/userRow.dto";
@@ -137,61 +135,9 @@ export class UsersRepository {
       joinedAt: user.createdAt,
       totalGames: data?.total_games ?? 0,
       wins: data?.wins ?? 0,
-      totalPlayCount: 0,
       averageRank: data?.avg_rank ?? 0,
-      recentRank: 0,
-      bestRank: 0,
-      topPercentile: 0,
-      averageWpm: data?.wpm ?? 0,
-      averageAccuracy: 0,
+      wpm: data?.wpm ?? 0,
       averageWordCount: data?.avg_word_count ?? 0,
-      recentWordCount: 0,
-      totalWordCount: data?.total_word_count ?? 0,
-    };
-  }
-
-  async updateDashboardByUserId(userId: string, input: UpdateDashboardInput) {
-    const user = await this.findById(userId);
-
-    const updatePayload: Record<string, number> = {};
-
-    if (input.totalGames !== undefined) updatePayload.total_games = input.totalGames;
-    if (input.wins !== undefined) updatePayload.wins = input.wins;
-    if (input.avgRank !== undefined) updatePayload.avg_rank = input.avgRank;
-    if (input.wpm !== undefined) updatePayload.wpm = input.wpm;
-    if (input.avgWordCount !== undefined) updatePayload.avg_word_count = input.avgWordCount;
-    if (input.totalWordCount !== undefined) updatePayload.total_word_count = input.totalWordCount;
-
-    if (Object.keys(updatePayload).length === 0) {
-      throw new BadRequestException("수정할 항목이 없습니다.");
-    }
-
-    const { data, error } = await this.supabaseService.instance
-      .from("user_stats")
-      .update(updatePayload)
-      .eq("user_id", userId)
-      .select()
-      .maybeSingle<UserStatsDto>();
-
-    if (error) {
-      throw new InternalServerErrorException("유저 통계 수정에 실패했습니다.");
-    }
-
-    return {
-      userId: user.id,
-      nickname: user.nickname,
-      joinedAt: user.createdAt,
-      totalGames: data?.total_games ?? 0,
-      wins: data?.wins ?? 0,
-      totalPlayCount: 0,
-      averageRank: data?.avg_rank ?? 0,
-      recentRank: 0,
-      bestRank: 0,
-      topPercentile: 0,
-      averageWpm: data?.wpm ?? 0,
-      averageAccuracy: 0,
-      averageWordCount: data?.avg_word_count ?? 0,
-      recentWordCount: 0,
       totalWordCount: data?.total_word_count ?? 0,
     };
   }
