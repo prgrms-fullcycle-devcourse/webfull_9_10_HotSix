@@ -1,9 +1,9 @@
 import { io, type Socket } from "socket.io-client";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
 export const createBattleSocket = (socketAuthToken: string): Socket => {
-  return io(`${SERVER_URL}/battle`, {
+  return io(`${SOCKET_URL}/battle`, {
     auth: {
       token: socketAuthToken,
     },
