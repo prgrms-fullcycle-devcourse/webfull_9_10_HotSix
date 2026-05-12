@@ -323,6 +323,7 @@ describe("BattleService game finish rules", () => {
       acquireGameFinishLock: jest.fn().mockResolvedValue(true),
       getCurrentGameState: jest.fn().mockResolvedValue(currentGameState),
       getPlayerParticipantStates: jest.fn().mockResolvedValue(input.participants),
+      removeLobbyEntry: jest.fn().mockResolvedValue(undefined),
       saveCurrentGameState: jest.fn(),
       saveGameResult: jest.fn(),
     } as unknown as BattleStateRepository;

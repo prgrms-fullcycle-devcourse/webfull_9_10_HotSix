@@ -81,6 +81,7 @@ describe("BattleResultRepository", () => {
 
     expect(gamesInsert).toHaveBeenCalledWith({
       ended_at: result.finishedAt,
+      id: result.gameId,
       started_at: currentGameState.gameStartedAt,
       total_players: "2",
       winner_user_id: "user-1",
