@@ -24,7 +24,7 @@ const LoginPage = () => {
         accessToken: tokens.accessToken,
         accessTokenExpiresAt: tokens.accessTokenExpiresAt,
       });
-      navigate(PATH.GAME_LOBBY);
+      navigate(PATH.ENTRY);
       return;
     } catch {
       await userLogin();

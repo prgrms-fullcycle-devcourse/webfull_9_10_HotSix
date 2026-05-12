@@ -23,9 +23,6 @@ const SideBar = ({ mode }: SidebarProps) => {
 
       {/* 참가자 / 대기자 목록 */}
       <UserListPanel mode={mode} />
-
-      {/* 채팅 */}
-      {/* <ChatPanel mode={mode} /> */}
     </aside>
   );
 };

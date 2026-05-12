@@ -6,9 +6,9 @@ interface HeartIconsProps {
 }
 
 const sizeMap = {
-  sm: "12px",
-  md: "14px",
-  lg: "20px",
+  sm: "w-3 h-3",
+  md: "w-4 h-4",
+  lg: "w-6 h-6",
 };
 
 const HeartIcons = ({ life, size = "sm" }: HeartIconsProps) => {
@@ -17,10 +17,10 @@ const HeartIcons = ({ life, size = "sm" }: HeartIconsProps) => {
   }));
 
   return (
-    <div className="flex gap-1 shrink-0">
+    <div className="flex gap-0.5 shrink-0">
       {hearts.map((h) => (
         <span key={h.id}>
-          <img src={heart} alt="heart" className={`w-[${sizeMap[size]}]`} />
+          <img src={heart} alt="heart" className={sizeMap[size]} />
         </span>
       ))}
     </div>
