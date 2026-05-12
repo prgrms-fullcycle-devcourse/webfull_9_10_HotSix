@@ -275,10 +275,6 @@ export class BattleService {
       );
     }
 
-    if (input.participantId) {
-      await this.battleStateRepository.removeLobbyEntry(input.participantId);
-    }
-
     return this.updateConnectionCount(currentGameState, assignedRole, -1);
   }
 
@@ -471,6 +467,12 @@ export class BattleService {
     await this.recordBattleResult(lockedGameState, result);
     await this.recordUserStats(result);
 
+    const allParticipantsIds = participants.map((p) => p.participantId);
+
+    await Promise.all(
+      allParticipantsIds.map(async (id) => this.battleStateRepository.removeLobbyEntry(id)),
+    );
+
     return {
       finishedGameState,
       result,
@@ -579,9 +581,12 @@ export class BattleService {
 
     return {
       ...input.participantState,
-      acceptedLength: input.comparison.acceptedLength,
-      accuracy: this.calculateAccuracy(
+      acceptedLength: Math.max(
+        input.participantState.acceptedLength,
         input.comparison.acceptedLength,
+      ),
+      accuracy: this.calculateAccuracy(
+        Math.max(input.participantState.acceptedLength, input.comparison.acceptedLength),
         input.comparison.typedLength,
       ),
       eliminatedAt,
