@@ -1,12 +1,14 @@
+import type { Socket } from "socket.io-client";
 import { useGameStore } from "@/stores/useGameStore";
 import type {
+  BattleEliminatedPayload,
   BattleProgressPayload,
   BattleStartedPayload,
   BattleStatePayload,
   BattleWaitingPayload,
 } from "../socket.types";
 
-export const registerGameHandlers = (socket: any) => {
+export const registerGameHandlers = (socket: Socket) => {
   const store = useGameStore.getState();
 
   // 게임 상태
@@ -39,7 +41,7 @@ export const registerGameHandlers = (socket: any) => {
   });
 
   // 탈락
-  socket.on("battle:eliminated", (data: any) => {
+  socket.on("battle:eliminated", (data: BattleEliminatedPayload) => {
     store.eliminateParticipant(data.userId);
   });
 
