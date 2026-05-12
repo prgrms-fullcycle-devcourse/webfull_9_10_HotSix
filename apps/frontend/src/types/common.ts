@@ -1,1 +1,1 @@
-export type PageMode = "game" | "lobby" | "watch" | "waiting";
+export type PageMode = "game" | "watch" | "waiting";

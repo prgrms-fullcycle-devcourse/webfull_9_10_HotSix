@@ -12,7 +12,7 @@ interface GameStats {
 }
 
 interface RoomInfoProps {
-  mode: "game" | "lobby" | "watch" | "waiting";
+  mode: "game" | "watch" | "waiting";
   stats?: RoomStats | GameStats; // ← stats를 props로 받기
 }
 
@@ -65,7 +65,7 @@ const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
         )}
 
         {/* 게임/대기방: 대기자/언어 */}
-        {["game", "lobby"].includes(mode) && (
+        {["game", "waiting"].includes(mode) && (
           <>
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">대기자</span>
