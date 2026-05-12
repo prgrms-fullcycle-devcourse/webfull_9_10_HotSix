@@ -1,6 +1,6 @@
 export type GameProgressProps = {
   typingCount: number;
-  accuracy: number;
+  accuracy: number | string;
   time: string;
   isWaiting?: boolean;
 };
