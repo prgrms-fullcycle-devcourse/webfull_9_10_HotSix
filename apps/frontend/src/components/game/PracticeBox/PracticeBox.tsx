@@ -44,11 +44,11 @@ export default function PracticeBox({ initialMessages = [] }: PracticeBoxProps) 
   };
 
   return (
-    <section className="flex w-full max-w-[916px] flex-col gap-4 border-[4px] border-black bg-[#454545] p-4 shadow-[8px_8px_0px_#000] sm:p-6">
+    <section className="bg-surface-sub flex w-full max-w-[916px] flex-col gap-4 border-[4px] border-black p-4 shadow-[8px_8px_0px_#000] sm:p-6">
       <button
         type="button"
         onClick={handleFocusInput}
-        className="flex cursor-text items-center gap-4 text-left text-white"
+        className="text-text flex cursor-text items-center gap-4 text-left"
       >
         <Keyboard size={28} />
         <h2 className="text-[clamp(22px,2vw,32px)] font-semibold">연습장</h2>
@@ -57,14 +57,14 @@ export default function PracticeBox({ initialMessages = [] }: PracticeBoxProps) 
       <button
         type="button"
         onClick={handleFocusInput}
-        className="block border-[4px] border-black bg-[#3b3b3b] p-4 text-left sm:p-6"
+        className="bg-surface-main block border-[4px] border-black p-4 text-left sm:p-6"
       >
         <div ref={scrollRef} className="h-[clamp(180px,28vh,240px)] overflow-y-auto">
           <div className="flex flex-col gap-2">
             {messages.map((message) => (
               <p
                 key={message.id}
-                className="whitespace-pre-wrap break-keep text-[clamp(18px,1.8vw,24px)] leading-[1.45] text-white"
+                className="text-text whitespace-pre-wrap break-keep text-[clamp(18px,1.8vw,24px)] leading-[1.45]"
               >
                 {message.text}
               </p>
@@ -84,7 +84,7 @@ export default function PracticeBox({ initialMessages = [] }: PracticeBoxProps) 
           }
         }}
         placeholder="메시지를 입력하세요..."
-        className="h-[clamp(48px,7vh,60px)] w-full border-[4px] border-black bg-gray-200 px-4 text-[clamp(16px,1.6vw,20px)] text-black outline-none placeholder:text-gray-400"
+        className="bg-surface-main text-text h-[clamp(48px,7vh,60px)] w-full border-[4px] border-black px-4 text-[clamp(16px,1.6vw,20px)] outline-none placeholder:text-text/50"
       />
     </section>
   );

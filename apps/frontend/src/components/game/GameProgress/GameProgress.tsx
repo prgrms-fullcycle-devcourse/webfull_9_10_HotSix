@@ -2,10 +2,10 @@ import type { GameProgressProps, StatusItemProps } from "@/types";
 
 function StatusItem({ label, value, unit, color }: StatusItemProps) {
   return (
-    <div className="flex h-[88px] min-w-0 flex-col items-center justify-center border-4 border-white bg-[#333333] shadow-[8px_8px_0_#000]">
+    <div className="bg-surface-sub flex h-[88px] min-w-0 flex-col items-center justify-center border-4 border-white shadow-[8px_8px_0_#000]">
       <p className={`mb-2 text-sm font-semibold ${color}`}>{label}</p>
 
-      <p className="text-xl font-semibold text-white">
+      <p className="text-text text-xl font-semibold">
         {value}
         {unit && <span className="ml-1 text-sm font-normal">{unit}</span>}
       </p>
@@ -20,7 +20,7 @@ export default function GameProgress({
   isWaiting = false,
 }: GameProgressProps) {
   return (
-    <section className="w-full max-w-[916px] border-4 border-black bg-[#454545] px-4 py-4 shadow-[8px_8px_0_#000] md:px-[22px] md:py-[19px]">
+    <section className="bg-surface-main w-full max-w-[916px] border-4 border-black px-4 py-4 shadow-[8px_8px_0_#000] md:px-[22px] md:py-[19px]">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
         {isWaiting ? (
           <>
