@@ -24,8 +24,8 @@ export default function GameProgress({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
         {isWaiting ? (
           <>
-            <StatusItem label="우승자" value="닉네임1" color="text-yellow-400" />
-            <StatusItem label="참여자" value={25} unit="명" color="text-cyan-400" />
+            <StatusItem label="우승자" value={accuracy} color="text-yellow-400" />
+            <StatusItem label="참여자" value={typingCount} unit="명" color="text-cyan-400" />
             <StatusItem label="시간" value={time} color="text-emerald-400" />
           </>
         ) : (

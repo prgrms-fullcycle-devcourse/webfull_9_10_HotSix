@@ -1,5 +1,5 @@
 import { Settings } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Socket } from "socket.io-client";
 import SideBar from "@/components/common/Sidebar/SideBar";
@@ -13,7 +13,7 @@ import { BATTLE_SOCKET_EVENTS } from "@/lib/socket/socketEvents";
 
 const REFRESH_TOKEN_COOKIE_ERROR_MESSAGE = "게스트 로그인에 실패했습니다.";
 const MATCH_JOIN_ERROR_MESSAGE = "매치 참가에 실패했습니다.";
-
+const MIN_PLAYERS = 4;
 const MOCK_PROMPT = `동해물과 백두산이 마르고 닳도록
 하느님이 보우하사 우리 나라 만세
 무궁화 삼천리 화려강산
@@ -50,16 +50,29 @@ const formatWaitingTime = (seconds: number) => {
   return `${remainSeconds}초`;
 };
 
+const getDurationSeconds = (startedAt?: string, endedAt?: string) => {
+  if (!startedAt || !endedAt) return 0;
+
+  const durationMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
+
+  return Math.max(0, Math.floor(durationMs / 1000));
+};
+
 const getApiBaseUrl = () => {
   return import.meta.env.VITE_API_BASE_URL;
 };
 
 const GamePage = () => {
   const socketRef = useRef<Socket | null>(null);
+  const isEnoughPlayersRef = useRef(false);
 
   const [phase, setPhase] = useState<GamePhase>("waiting");
-  const [waitingSeconds, setWaitingSeconds] = useState(15);
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [countdown, setCountdown] = useState(10);
+
+  const [previousWinner, setPreviousWinner] = useState("-");
+  const [waitingPlayerCount, setWaitingPlayerCount] = useState(0);
+  const [previousGameDuration, setPreviousGameDuration] = useState("00:00");
 
   const [promptContent, setPromptContent] = useState(MOCK_PROMPT);
   const [progress, setProgress] = useState(0);
@@ -67,6 +80,15 @@ const GamePage = () => {
   const [accuracy, setAccuracy] = useState(100);
   const [life, setLife] = useState(3);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const updatePlayerStatus = useCallback((playerCount: number, minPlayers: number) => {
+    const hasEnoughPlayers = playerCount >= minPlayers;
+
+    isEnoughPlayersRef.current = hasEnoughPlayers;
+    setWaitingPlayerCount(playerCount);
+
+    return hasEnoughPlayers;
+  }, []);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -81,32 +103,21 @@ const GamePage = () => {
   }, [phase]);
 
   useEffect(() => {
-    if (phase !== "waiting") return;
-
-    const timer = window.setInterval(() => {
-      setWaitingSeconds((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(timer);
-          setPhase("countdown");
-          return 0;
-        }
-
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [phase]);
-
-  useEffect(() => {
     if (phase !== "countdown") return;
 
     const timer = window.setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           window.clearInterval(timer);
+
+          if (!isEnoughPlayersRef.current) {
+            setPhase("waiting");
+            setCountdown(10);
+            setWaitingSeconds(0);
+
+            return prev;
+          }
+
           setPhase("playing");
           setElapsedSeconds(0);
           return 0;
@@ -145,6 +156,7 @@ const GamePage = () => {
         if (!accessToken) {
           throw new Error("accessToken이 없습니다.");
         }
+
         const joinResponse = await fetch(`${apiBaseUrl}/v1/match/join`, {
           method: "POST",
           credentials: "include",
@@ -177,12 +189,48 @@ const GamePage = () => {
 
         socket.on(BATTLE_SOCKET_EVENTS.STATE, (data) => {
           console.log("현재 게임 상태:", data);
+
+          const playerCount = data.game?.playerCount ?? data.playerCount ?? 0;
+          const minPlayers = data.game?.minPlayers ?? data.minPlayers ?? MIN_PLAYERS;
+
+          updatePlayerStatus(playerCount, minPlayers);
+
+          const winner =
+            data.previousGame?.winner?.nickname ??
+            data.previousGame?.winnerName ??
+            data.previousGame?.winner ??
+            "-";
+
+          setPreviousWinner(winner);
+
+          const startedAt =
+            data.previousGame?.gameStartedAt ??
+            data.previousGame?.startedAt ??
+            data.game?.gameStartedAt;
+
+          const endedAt =
+            data.previousGame?.gameEndedAt ?? data.previousGame?.endedAt ?? data.game?.gameEndedAt;
+
+          setPreviousGameDuration(formatTime(getDurationSeconds(startedAt, endedAt)));
         });
 
         socket.on(BATTLE_SOCKET_EVENTS.WAITING, (data) => {
           console.log("게임 대기 중:", data);
 
+          const playerCount = data.game?.playerCount ?? data.playerCount ?? 0;
+          const minPlayers = data.game?.minPlayers ?? data.minPlayers ?? MIN_PLAYERS;
+          const hasEnoughPlayers = updatePlayerStatus(playerCount, minPlayers);
+
+          if (!hasEnoughPlayers) {
+            setPhase("waiting");
+            setWaitingSeconds(0);
+            setCountdown(10);
+            return;
+          }
+
           const remainingSeconds = data.remainingSeconds ?? 15;
+
+          setWaitingSeconds(remainingSeconds);
 
           if (remainingSeconds <= 10) {
             setPhase("countdown");
@@ -191,11 +239,18 @@ const GamePage = () => {
           }
 
           setPhase("waiting");
-          setWaitingSeconds(remainingSeconds);
         });
 
         socket.on(BATTLE_SOCKET_EVENTS.STARTED, (data) => {
           console.log("게임 시작:", data);
+
+          if (!isEnoughPlayersRef.current) {
+            console.warn("최소 인원 미달로 STARTED 이벤트 무시");
+            setPhase("waiting");
+            setWaitingSeconds(0);
+            setCountdown(10);
+            return;
+          }
 
           setPromptContent(data.prompt?.content ?? MOCK_PROMPT);
           setElapsedSeconds(0);
@@ -234,7 +289,7 @@ const GamePage = () => {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-  }, []);
+  }, [updatePlayerStatus]);
 
   const handleInputChange = (
     inputText: string,
@@ -292,17 +347,25 @@ const GamePage = () => {
                   <RaceTrack progress={progress} />
                 ) : (
                   <div className="flex h-[87px] w-full max-w-[900px] items-center justify-center text-center text-[clamp(28px,3vw,44px)] font-bold text-white drop-shadow-[3px_3px_0px_#000]">
-                    {phase === "waiting" ? "게임 진입까지 " : "게임 시작까지 "}
-                    <span className="text-yellow-400">
-                      {phase === "waiting" ? formatWaitingTime(waitingSeconds) : `${countdown}초`}
-                    </span>
+                    {waitingPlayerCount < MIN_PLAYERS ? (
+                      <span className="text-yellow-400">참여자를 기다리는 중...</span>
+                    ) : (
+                      <>
+                        {phase === "waiting" ? "게임 진입까지 " : "게임 시작까지 "}
+                        <span className="text-yellow-400">
+                          {phase === "waiting"
+                            ? formatWaitingTime(waitingSeconds)
+                            : `${countdown}초`}
+                        </span>
+                      </>
+                    )}
                   </div>
                 )}
 
                 <GameProgress
-                  typingCount={typingCount}
-                  accuracy={accuracy}
-                  time={isPlaying ? formatTime(elapsedSeconds) : "01:14"}
+                  typingCount={isPlaying ? typingCount : waitingPlayerCount}
+                  accuracy={isPlaying ? accuracy : previousWinner}
+                  time={isPlaying ? formatTime(elapsedSeconds) : previousGameDuration}
                   isWaiting={!isPlaying}
                 />
 
