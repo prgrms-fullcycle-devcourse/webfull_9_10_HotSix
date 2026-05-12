@@ -325,13 +325,13 @@ const GamePage = () => {
   const isPlaying = phase === "playing";
 
   return (
-    <div className="relative flex h-dvh w-full overflow-hidden bg-[#5D6F79]">
+    <div className="bg-surface-main relative flex h-dvh w-full overflow-hidden">
       <Link
         to={PATH.SETTING}
         aria-label="설정 페이지로 이동"
         className="absolute right-[72px] top-[30px] z-50 flex h-[47px] w-[47px] items-center justify-center"
       >
-        <Settings size={47} strokeWidth={2.5} className="text-[#3F3F3F]" />
+        <Settings size={47} strokeWidth={2.5} className="text-text" />
       </Link>
 
       <div className="h-full w-full p-6">
@@ -344,9 +344,9 @@ const GamePage = () => {
             <div className="w-full max-w-[1180px]">
               <div className="flex w-full flex-col items-center gap-6">
                 {isPlaying ? (
-                  <RaceTrack progress={progress} />
+                  <RaceTrack progress={progress} carIndex={0} />
                 ) : (
-                  <div className="flex h-[87px] w-full max-w-[900px] items-center justify-center text-center text-[clamp(28px,3vw,44px)] font-bold text-white drop-shadow-[3px_3px_0px_#000]">
+                  <div className="flex h-[87px] w-full max-w-[900px] items-center justify-center text-center text-[clamp(28px,3vw,44px)] font-bold text-text drop-shadow-[3px_3px_0px_#000]">
                     {waitingPlayerCount < MIN_PLAYERS ? (
                       <span className="text-yellow-400">참여자를 기다리는 중...</span>
                     ) : (
@@ -372,8 +372,8 @@ const GamePage = () => {
                 {phase === "waiting" && <PracticeBox />}
 
                 {phase === "countdown" && (
-                  <div className="flex h-[clamp(300px,52vh,420px)] w-full max-w-[916px] items-center justify-center border-[4px] border-black bg-[#454545] shadow-[8px_8px_0px_#000]">
-                    <span className="text-[clamp(80px,12vw,140px)] font-bold text-white drop-shadow-[4px_4px_0px_#000]">
+                  <div className="flex h-[clamp(300px,52vh,420px)] w-full max-w-[916px] items-center justify-center border-[4px] border-black bg-surface-sub shadow-[8px_8px_0px_#000]">
+                    <span className="text-[clamp(80px,12vw,140px)] font-bold text-text drop-shadow-[4px_4px_0px_#000]">
                       {countdown}
                     </span>
                   </div>

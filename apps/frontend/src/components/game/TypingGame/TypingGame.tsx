@@ -156,14 +156,14 @@ const TypingGame = ({ prompt, life, onInputChange, onWrongInput }: TypingGamePro
   };
 
   return (
-    <div className="flex min-w-0 w-full max-w-[916px] flex-col gap-3 border-[4px] border-black bg-[#454545] p-3 shadow-[8px_8px_0px_#000] sm:gap-4 sm:p-4 lg:p-6">
+    <div className="flex min-w-0 w-full max-w-[916px] flex-col gap-3 border-[4px] border-black bg-surface-sub p-3 shadow-[8px_8px_0px_#000] sm:gap-4 sm:p-4 lg:p-6">
       <div className="flex items-center justify-between">
-        <div className="text-xl text-white">⌨️</div>
+        <div className="text-xl text-text">⌨️</div>
 
         <HeartStatus life={life} />
       </div>
 
-      <div className="border-[4px] border-black bg-[#3b3b3b] p-6">
+      <div className="border-[4px] border-black bg-surface-main p-6">
         <div ref={containerRef} className="h-[clamp(160px,28vh,240px)] w-full overflow-hidden">
           <div className="whitespace-pre-wrap break-keep text-[clamp(18px,2vw,24px)] leading-[2.5]">
             {visibleLines.map((line, visibleLineIndex) => {
@@ -209,7 +209,7 @@ const TypingGame = ({ prompt, life, onInputChange, onWrongInput }: TypingGamePro
                           state === "composing" && "text-yellow-400",
                           state === "wrong" && "text-red-400",
                           state === "cursor" && "bg-yellow-300 text-black",
-                          state === "untyped" && "text-white",
+                          state === "untyped" && "text-text",
                         )}
                       >
                         {char}
@@ -231,7 +231,7 @@ const TypingGame = ({ prompt, life, onInputChange, onWrongInput }: TypingGamePro
         ref={inputRef}
         placeholder={isGameOver ? "Game Over" : "Start typing here..."}
         disabled={isGameOver}
-        className="h-[clamp(48px,7vh,60px)] w-full resize-none border-[4px] border-black bg-gray-200 px-4 py-3 text-[clamp(16px,1.6vw,20px)] font-bold text-black placeholder:text-gray-400 outline-none disabled:bg-gray-400"
+        className="h-[clamp(48px,7vh,60px)] w-full resize-none border-[4px] border-black bg-surface-main px-4 py-3 text-[clamp(16px,1.6vw,20px)] font-bold text-text placeholder:text-text/50 outline-none disabled:bg-surface-sub"
       />
     </div>
   );
