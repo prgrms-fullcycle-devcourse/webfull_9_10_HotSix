@@ -4,13 +4,13 @@ import { create } from "zustand";
 type SocketState = {
   socket: Socket | null;
   connected: boolean;
-  error: any | null;
+  error: string | null;
 
   connect: (socket: Socket) => void;
   disconnect: () => void;
 
   setConnected: (value: boolean) => void;
-  setError: (error: any | null) => void;
+  setError: (error: string | null) => void;
 };
 
 export const useSocketStore = create<SocketState>((set) => ({

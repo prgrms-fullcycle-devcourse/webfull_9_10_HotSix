@@ -7,21 +7,49 @@ import { registerConnectionHandlers } from "@/lib/socket/handlers/connection.han
 import { registerGameHandlers } from "@/lib/socket/handlers/game.handler";
 import { useSocketStore } from "@/stores/useSocketStore";
 
+let isEnteringBattle = false;
+
 export const useEnterBattle = () => {
   const navigate = useNavigate();
 
   return async () => {
-    const { socketAuthToken } = await joinMatch();
+    if (isEnteringBattle) return;
 
-    const socket = createBattleSocket(socketAuthToken);
-    useSocketStore.getState().connect(socket);
-    registerConnectionHandlers(socket);
-    registerGameHandlers(socket);
+    isEnteringBattle = true;
 
-    const game = await getGameDetail();
+    try {
+      const currentSocket = useSocketStore.getState().socket;
 
-    navigate(game.game.phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY, {
-      replace: true,
-    });
+      if (currentSocket?.connected) {
+        const game = await getGameDetail();
+
+        navigate(game.game.phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY, {
+          replace: true,
+        });
+
+        return;
+      }
+
+      const { socketAuthToken } = await joinMatch();
+
+      const socket = createBattleSocket(socketAuthToken);
+      console.log("소켓 생성됨", socket);
+
+      useSocketStore.getState().connect(socket);
+      console.log("소켓 store 저장 완료");
+
+      registerConnectionHandlers(socket);
+      registerGameHandlers(socket);
+
+      console.log("소켓 핸들러 등록 완료");
+
+      const game = await getGameDetail();
+
+      navigate(game.game.phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY, {
+        replace: true,
+      });
+    } finally {
+      isEnteringBattle = false;
+    }
   };
 };

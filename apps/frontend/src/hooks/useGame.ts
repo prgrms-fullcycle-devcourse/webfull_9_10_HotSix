@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { getGameDetail, getScoreBoard } from "@/api/game.api";
-import { useGameStore } from "@/stores/useGameStore";
+import { type Participant, useGameStore } from "@/stores/useGameStore";
 
 export const useGameDetail = () => {
   return useQuery({
@@ -19,66 +19,49 @@ export const useScoreboard = () => {
   });
 };
 
-// 참가자 컴포넌트용
 export const useGameData = () => {
   const { data: game } = useGameDetail();
   const { data: scoreboard } = useScoreboard();
 
-  const { setParticipants, setPrompt } = useGameStore();
-
-  console.log(game);
+  const { setParticipants, setPrompt, setWaitingState } = useGameStore();
 
   useEffect(() => {
-    // 👉 1. 실제 데이터 있을 때
-    if (game && scoreboard && game.participants?.length > 0) {
+    if (!game) return;
+
+    if (game.prompt?.text) {
       setPrompt(game.prompt.text);
-
-      const mapped = game.participants.map((p) => {
-        const score = scoreboard.find((s) => s.userId === p.userId);
-
-        return {
-          participantId: p.userId,
-          nickname: p.nickname,
-          typedLength: p.typedLength,
-          progressPercent: p.progressPercent,
-          wpm: score?.wpm ?? p.wpm,
-          life: score?.life ?? 3,
-          rank: score?.rank ?? 0,
-          accuracy: score?.accuracy ?? p.accuracy,
-        };
-      });
-
-      setParticipants(mapped);
-      return;
     }
 
-    // 👉 2. mock 데이터 fallback
-    const mockParticipants = [
-      {
-        participantId: "1",
-        nickname: "플레이어1",
-        typedLength: 120,
-        progressPercent: 30,
-        wpm: 250,
-        life: 3,
-        rank: 1,
-        accuracy: 98,
-      },
-      {
-        participantId: "2",
-        nickname: "플레이어2",
-        typedLength: 90,
-        progressPercent: 22,
-        wpm: 210,
-        life: 2,
-        rank: 2,
-        accuracy: 95,
-      },
-    ];
+    const scoreboardUserIds = new Set(scoreboard?.map((s) => s.userId) ?? []);
 
-    const mockPrompt = "이것은 테스트용 문장입니다.";
+    const filteredParticipants =
+      scoreboardUserIds.size > 0
+        ? (game.participants ?? []).filter((p) => scoreboardUserIds.has(p.userId))
+        : [];
 
-    setPrompt(mockPrompt);
-    setParticipants(mockParticipants);
-  }, [game, scoreboard, setParticipants, setPrompt]);
+    const mapped: Participant[] = filteredParticipants.map((p) => {
+      const score = scoreboard?.find((s) => s.userId === p.userId);
+
+      const life = score?.life ?? p.life ?? 3;
+
+      return {
+        participantId: p.userId,
+        nickname: p.nickname,
+        typedLength: p.typedLength ?? 0,
+        progressPercent: p.progressPercent ?? 0,
+        wpm: score?.wpm ?? p.wpm ?? 0,
+        life,
+        rank: score?.rank ?? p.rank ?? 0,
+        accuracy: score?.accuracy ?? p.accuracy ?? 100,
+        status: life === 0 ? "dead" : "playing",
+      };
+    });
+
+    setParticipants(mapped);
+
+    setWaitingState({
+      playerCount: mapped.length,
+      remainingSeconds: game.remainingSeconds ?? 23,
+    });
+  }, [game, scoreboard, setParticipants, setPrompt, setWaitingState]);
 };
