@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { refreshUser } from "@/api/auth.api";
+import { PATH } from "@/constants/route";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
@@ -73,6 +74,9 @@ api.interceptors.response.use(
     } catch (err) {
       refreshPromise = null;
       useAuthStore.getState().clearAuth();
+      if (typeof window !== "undefined" && window.location.pathname !== PATH.ROOT) {
+        window.location.replace(PATH.ROOT);
+      }
       return Promise.reject(err);
     }
   },
