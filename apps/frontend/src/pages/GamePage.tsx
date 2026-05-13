@@ -6,6 +6,7 @@ import { GameProgress } from "@/components/game/GameProgress";
 import { RaceTrack } from "@/components/game/RaceTrack";
 import TypingGame from "@/components/game/TypingGame/TypingGame";
 import { PATH } from "@/constants/route";
+import { useGameData } from "@/hooks/useGame";
 import { BATTLE_SOCKET_EVENTS } from "@/lib/socket/socketEvents";
 import { useGameStore } from "@/stores/useGameStore";
 import { useSocketStore } from "@/stores/useSocketStore";
@@ -22,6 +23,8 @@ const getPromptLength = (prompt: string) => {
 };
 
 const GamePage = () => {
+  useGameData();
+
   const socket = useSocketStore((state) => state.socket);
 
   const prompt = useGameStore((state) => state.prompt);
@@ -36,7 +39,7 @@ const GamePage = () => {
 
   const progress = myParticipant?.progressPercent ?? localProgress;
   const typingCount = myParticipant?.typedLength ?? localTypingCount;
-  const accuracy = myParticipant ? 100 : localAccuracy;
+  const accuracy = myParticipant?.accuracy ?? localAccuracy;
   const life = myParticipant?.life ?? 3;
 
   useEffect(() => {

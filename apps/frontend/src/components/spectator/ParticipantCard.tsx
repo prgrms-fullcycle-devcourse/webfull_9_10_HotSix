@@ -6,14 +6,23 @@ interface Props {
   progress: number;
   wpm: number;
   typedLength: number;
-  promptText: string;
+  promptText?: string;
   life: number;
 }
 
-const ParticipantCard = ({ nickname, progress, wpm, typedLength, promptText, life }: Props) => {
-  const renderPromptProgress = (text: string, typedLength: number) => {
-    const correct = text.slice(0, typedLength);
-    const rest = text.slice(typedLength);
+const ParticipantCard = ({
+  nickname,
+  progress,
+  wpm,
+  typedLength,
+  promptText = "",
+  life,
+}: Props) => {
+  const renderPromptProgress = (text = "", typedLength = 0) => {
+    const safeTypedLength = Math.max(0, typedLength);
+
+    const correct = text.slice(0, safeTypedLength);
+    const rest = text.slice(safeTypedLength);
 
     return (
       <span>
@@ -24,33 +33,53 @@ const ParticipantCard = ({ nickname, progress, wpm, typedLength, promptText, lif
   };
 
   return (
-    <div>
-      {/* 상단: 닉네임 + 하트 */}
-      <div className="flex justify-between items-center mb-1 px-2">
-        <span className="text-white text-sm font-semibold">{nickname}</span>
+    <div className="w-full max-w-[320px]">
+      <div className="mb-1 flex items-center justify-between px-2">
+        <span className="max-w-[210px] truncate text-sm font-semibold text-white">{nickname}</span>
 
         <HeartIcons life={life} size="md" />
       </div>
+
       <div
         className="
-                w-full max-w-[320px]
-                bg-[#2f2f2f]
-                px-4 py-3
-                border-[3px] border-black
-                shadow-[6px_6px_0_#000]
-            "
+          flex
+          h-[260px]
+          w-full
+          flex-col
+          border-[3px]
+          border-black
+          bg-[#2f2f2f]
+          px-4
+          py-3
+          shadow-[6px_6px_0_#000]
+        "
       >
-        {/* 문장 진행 표시 */}
-        <div className="text-sm mb-14 leading-snug">
+        <div
+          className="
+            mb-3
+            flex-1
+            overflow-y-auto
+            pr-2
+            text-sm
+            leading-snug
+
+            [&::-webkit-scrollbar]:w-2
+            [&::-webkit-scrollbar-track]:bg-[#242424]
+            [&::-webkit-scrollbar-thumb]:bg-[#777]
+            [&::-webkit-scrollbar-thumb]:border
+            [&::-webkit-scrollbar-thumb]:border-black
+          "
+        >
           {renderPromptProgress(promptText, typedLength)}
         </div>
 
-        <div className="text-xs text-gray-300">
-          WPM: <span className="text-white">{wpm}</span>
-        </div>
+        <div className="shrink-0">
+          <div className="mb-1 text-xs text-gray-300">
+            WPM: <span className="text-white">{wpm}</span>
+          </div>
 
-        {/* 진행 바 */}
-        <ProgressBar progress={progress} />
+          <ProgressBar progress={progress} />
+        </div>
       </div>
     </div>
   );

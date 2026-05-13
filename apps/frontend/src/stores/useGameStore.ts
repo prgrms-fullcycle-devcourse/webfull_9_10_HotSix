@@ -3,15 +3,17 @@ import type { BattlePhase } from "@/lib/socket/socket.types";
 
 type GamePhase = BattlePhase | "countdown";
 
-interface Participant {
+export interface Participant {
   participantId: string;
   nickname: string;
 
   progressPercent: number;
   typedLength: number;
   wpm: number;
-
+  accuracy: number;
   life: number;
+
+  rank?: number;
 
   status?: "playing" | "dead";
 }
@@ -68,10 +70,31 @@ export const useGameStore = create<GameState>((set) => ({
   setParticipants: (participants) => set({ participants }),
 
   setWaitingState: ({ playerCount, remainingSeconds }) =>
-    set({
-      waitingPlayerCount: playerCount,
-      countdown: remainingSeconds,
-      phase: remainingSeconds <= 10 ? "countdown" : "waiting",
+    set((state) => {
+      const isAlreadyInGame = state.phase === "in_progress" || state.phase === "finished";
+
+      if (isAlreadyInGame) {
+        return {
+          waitingPlayerCount: playerCount,
+          countdown: remainingSeconds,
+        };
+      }
+
+      // 최소 참가 인원 충족 전 → 항상 waiting
+      if (playerCount < 2) {
+        return {
+          waitingPlayerCount: playerCount,
+          countdown: 30,
+          phase: "waiting",
+        };
+      }
+
+      // 최소 참가 인원 충족 후
+      return {
+        waitingPlayerCount: playerCount,
+        countdown: remainingSeconds,
+        phase: remainingSeconds <= 10 ? "countdown" : "waiting",
+      };
     }),
 
   setGameState: ({ waitingPlayerCount, previousWinner, previousGameDuration }) =>
@@ -82,16 +105,44 @@ export const useGameStore = create<GameState>((set) => ({
     }),
 
   updateParticipant: (data) =>
-    set((state) => ({
-      participants: state.participants.map((participant) =>
-        participant.participantId === data.participantId
-          ? {
-              ...participant,
-              ...data,
-            }
-          : participant,
-      ),
-    })),
+    set((state) => {
+      if (!data.participantId) {
+        return state;
+      }
+
+      const exists = state.participants.some(
+        (participant) => participant.participantId === data.participantId,
+      );
+
+      if (!exists) {
+        const newParticipant: Participant = {
+          participantId: data.participantId,
+          nickname: data.nickname ?? "",
+          progressPercent: data.progressPercent ?? 0,
+          typedLength: data.typedLength ?? 0,
+          wpm: data.wpm ?? 0,
+          accuracy: data.accuracy ?? 100,
+          life: data.life ?? 3,
+          rank: data.rank ?? 0,
+          status: data.status ?? "playing",
+        };
+
+        return {
+          participants: [...state.participants, newParticipant],
+        };
+      }
+
+      return {
+        participants: state.participants.map((participant) =>
+          participant.participantId === data.participantId
+            ? {
+                ...participant,
+                ...data,
+              }
+            : participant,
+        ),
+      };
+    }),
 
   eliminateParticipant: (participantId) =>
     set((state) => ({

@@ -5,16 +5,22 @@ import SideBar from "@/components/common/Sidebar/SideBar";
 import { GameProgress } from "@/components/game/GameProgress";
 import PracticeBox from "@/components/game/PracticeBox";
 import { PATH } from "@/constants/route";
+import { useGameData } from "@/hooks/useGame";
 import { useGameStore } from "@/stores/useGameStore";
 
 const GameLobbyPage = () => {
   const navigate = useNavigate();
 
+  useGameData();
+
   const phase = useGameStore((state) => state.phase);
+  const participants = useGameStore((state) => state.participants);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
   const countdown = useGameStore((state) => state.countdown);
   const previousWinner = useGameStore((state) => state.previousWinner);
   const previousGameDuration = useGameStore((state) => state.previousGameDuration);
+
+  const playerCount = Math.max(waitingPlayerCount, participants.length);
 
   useEffect(() => {
     if (phase === "in_progress") {
@@ -26,7 +32,8 @@ const GameLobbyPage = () => {
     }
   }, [phase, navigate]);
 
-  const isCountdown = phase === "countdown";
+  const MIN_PLAYERS = 4;
+  const isCountdown = phase === "waiting" && playerCount >= MIN_PLAYERS;
 
   return (
     <div className="bg-surface-main relative flex h-dvh w-full overflow-hidden">
@@ -59,21 +66,23 @@ const GameLobbyPage = () => {
                 </div>
 
                 <GameProgress
-                  typingCount={waitingPlayerCount}
+                  typingCount={playerCount}
                   accuracy={previousWinner}
                   time={previousGameDuration}
                   isWaiting
                 />
 
-                {!isCountdown && <PracticeBox />}
+                <div className="relative w-full max-w-[916px]">
+                  <PracticeBox />
 
-                {isCountdown && (
-                  <div className="flex h-[clamp(300px,52vh,420px)] w-full max-w-[916px] items-center justify-center border-[4px] border-black bg-surface-sub shadow-[8px_8px_0px_#000]">
-                    <span className="text-[clamp(80px,12vw,140px)] font-bold text-text drop-shadow-[4px_4px_0px_#000]">
-                      {countdown}
-                    </span>
-                  </div>
-                )}
+                  {isCountdown && countdown <= 10 && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center border-[4px] border-black bg-black/60">
+                      <span className="text-[clamp(80px,12vw,140px)] font-bold text-yellow-400 drop-shadow-[4px_4px_0px_#000]">
+                        {countdown}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
