@@ -1,3 +1,4 @@
+import mockProfile from "@/assets/icons/char1.svg";
 import Header from "@/components/common/Header";
 import ShadowBox from "@/components/common/ShadowBox";
 import { SquareSizeCheckbox } from "@/components/common/SquareCheckbox";
@@ -28,7 +29,13 @@ export default function SettingPage() {
         <ShadowBox className="w-full">
           <div className="flex flex-col gap-6 px-8 py-6 text-">
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded bg-surface-sub" />
+              <div className="h-16 w-16 rounded bg-surface-sub">
+                {/* {userInfo?.avatarUrl ? ( */}
+                {/* <img alt="user-profile" src={userInfo?.avatarUrl} /> */}
+                {/* ) : ( */}
+                <img alt="mock-profile" src={mockProfile} />
+                {/* )} */}
+              </div>
               <div className="text-title-sm">{userInfo?.nickname}</div>
             </div>
 
