@@ -1,8 +1,8 @@
 import { createBrowserRouter } from "react-router-dom";
-import { EntryPage } from "@/pages/EntryPage";
 import GameLobbyPage from "@/pages/GameLobbyPage";
 import GamePage from "@/pages/GamePage";
 import LoginPage from "@/pages/LoginPage";
+import NotFoundPage from "@/pages/NotFoundPage";
 import SettingPage from "@/pages/SettingPage";
 import SpectatePage from "@/pages/SpectatePage";
 import { PATH } from "../constants/route";
@@ -29,7 +29,7 @@ export const router = createBrowserRouter([
     element: <SettingPage />,
   },
   {
-    path: PATH.ENTRY,
-    element: <EntryPage />,
+    path: "*",
+    element: <NotFoundPage />,
   },
 ]);

@@ -47,6 +47,33 @@
   .bg-dash-white {
     background-image: repeating-linear-gradient(90deg, #ffffff 0 18px, transparent 18px 36px);
   }
+
+  .animate-car-rattle {
+    animation: car-rattle 0.08s steps(2) infinite;
+  }
+
+  .animate-car-bob {
+    animation: car-bob 0.4s ease-in-out infinite;
+  }
+}
+
+@keyframes car-rattle {
+  0% {
+    transform: translateX(-1px);
+  }
+  100% {
+    transform: translateX(px);
+  }
+}
+
+@keyframes car-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 @layer base {
