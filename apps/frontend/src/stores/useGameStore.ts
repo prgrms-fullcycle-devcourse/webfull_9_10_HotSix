@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { BattlePhase } from "@/lib/socket/socket.types";
 
+const MIN_PLAYERS = 2;
+
 type GamePhase = BattlePhase | "countdown";
 
 export interface Participant {
@@ -12,8 +14,6 @@ export interface Participant {
   wpm: number;
   accuracy: number;
   life: number;
-
-  rank?: number;
 
   status?: "playing" | "dead";
 }
@@ -74,26 +74,16 @@ export const useGameStore = create<GameState>((set) => ({
       const isAlreadyInGame = state.phase === "in_progress" || state.phase === "finished";
 
       if (isAlreadyInGame) {
-        return {
-          waitingPlayerCount: playerCount,
-          countdown: remainingSeconds,
-        };
+        return state;
       }
 
-      // 최소 참가 인원 충족 전 → 항상 waiting
-      if (playerCount < 2) {
-        return {
-          waitingPlayerCount: playerCount,
-          countdown: remainingSeconds,
-          phase: "waiting",
-        };
-      }
+      const nextPhase: GamePhase =
+        playerCount < MIN_PLAYERS || remainingSeconds > 10 ? "waiting" : "countdown";
 
-      // 최소 참가 인원 충족 후
       return {
         waitingPlayerCount: playerCount,
         countdown: remainingSeconds,
-        phase: remainingSeconds <= 10 ? "countdown" : "waiting",
+        phase: nextPhase,
       };
     }),
 
@@ -123,7 +113,6 @@ export const useGameStore = create<GameState>((set) => ({
           wpm: data.wpm ?? 0,
           accuracy: data.accuracy ?? 100,
           life: data.life ?? 3,
-          rank: data.rank ?? 0,
           status: data.status ?? "playing",
         };
 
