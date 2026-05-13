@@ -30,7 +30,7 @@ export const registerGameHandlers = (socket: Socket) => {
 
     useGameStore.getState().setWaitingState({
       playerCount,
-      remainingSeconds: stateData.remainingSeconds ?? stateData.countdown ?? 30,
+      remainingSeconds: stateData.remainingSeconds ?? stateData.countdown ?? 0,
     });
 
     stateData.participants?.forEach((participant) => {
@@ -53,14 +53,13 @@ export const registerGameHandlers = (socket: Socket) => {
     const playerCount =
       data?.playerCount ?? data?.waitingPlayerCount ?? useGameStore.getState().participants.length;
 
-    const remainingSeconds =
-      data?.remainingSeconds ?? data?.countdown ?? useGameStore.getState().countdown;
+    const remainingSeconds = data?.remainingSeconds ?? data?.countdown ?? 0;
 
     console.log("[battle:waiting parsed]", {
       playerCount,
       remainingSeconds,
-      currentCountdown: useGameStore.getState().countdown,
     });
+
     useGameStore.getState().setWaitingState({
       playerCount,
       remainingSeconds,

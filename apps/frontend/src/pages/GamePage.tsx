@@ -29,7 +29,8 @@ const GamePage = () => {
 
   const prompt = useGameStore((state) => state.prompt);
   const participants = useGameStore((state) => state.participants);
-
+  console.log("socket.id:", socket?.id);
+  console.log("participants:", participants);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localTypingCount, setLocalTypingCount] = useState(0);
   const [localAccuracy, setLocalAccuracy] = useState(100);

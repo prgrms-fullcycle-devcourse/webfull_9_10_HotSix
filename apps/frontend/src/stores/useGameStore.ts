@@ -58,7 +58,7 @@ export const useGameStore = create<GameState>((set) => ({
   participants: [],
 
   waitingPlayerCount: 0,
-  countdown: 10,
+  countdown: 0,
 
   previousWinner: "-",
   previousGameDuration: "00:00",
@@ -84,7 +84,7 @@ export const useGameStore = create<GameState>((set) => ({
       if (playerCount < 2) {
         return {
           waitingPlayerCount: playerCount,
-          countdown: 30,
+          countdown: remainingSeconds,
           phase: "waiting",
         };
       }
