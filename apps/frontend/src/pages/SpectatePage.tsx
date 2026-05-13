@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Socket } from "socket.io-client";
 import settingIcon from "@/assets/icons/settingIcon.svg";
 import BgImage from "@/assets/images/racing_night.svg";
 import SideBar from "@/components/common/Sidebar/SideBar";
@@ -7,6 +8,7 @@ import ParticipantCard from "@/components/spectator/ParticipantCard";
 import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
 import { createBattleSocket } from "@/lib/socket/battleSocket";
+import type { BattleProgressPayload } from "@/lib/socket/socket.types";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useGameStore } from "@/stores/useGameStore";
 
@@ -18,7 +20,7 @@ const SpectatePage = () => {
   useEffect(() => {
     if (!accessToken) return;
 
-    let socket: any;
+    let socket: Socket | null = null;
 
     const connectSocket = async () => {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -37,7 +39,7 @@ const SpectatePage = () => {
       // 소켓 연결
       socket = createBattleSocket(socketAuthToken);
 
-      socket.on("battle:progress", (data: any) => {
+      socket.on("battle:progress", (data: BattleProgressPayload) => {
         const participant = data.participant;
 
         useGameStore.getState().updateParticipant(participant);
