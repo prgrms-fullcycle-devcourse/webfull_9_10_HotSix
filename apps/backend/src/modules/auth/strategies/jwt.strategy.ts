@@ -1,4 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -6,11 +8,14 @@ import { UsersService } from "../../users/users.service";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly userService: UsersService) {
+  constructor(
+    private readonly userService: UsersService,
+    configService: ConfigService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET ?? "",
+      secretOrKey: configService.getOrThrow<string>("JWT_SECRET"),
     });
   }
 

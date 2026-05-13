@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { validate } from "./config/env.config";
 import { DocsModule } from "./docs/docs.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BattleModule } from "./modules/battle/battle.module";
@@ -14,6 +15,8 @@ import { StorageModule } from "./storage/storage.module";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate,
+      cache: true,
     }),
     GameStateModule,
     AuthModule,
