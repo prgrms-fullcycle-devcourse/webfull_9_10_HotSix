@@ -1,4 +1,11 @@
 import { Controller, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
+import {
+  ApiCookieAuth,
+  ApiNoContentResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import type { Request, Response } from "express";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { AuthService } from "./auth.service";
@@ -9,11 +16,13 @@ type RequestWithCookies = Request & {
   cookies?: Record<string, string | undefined>;
 };
 
+@ApiTags("auth")
 @Controller("v1/auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post("guest/login")
+  @ApiOperation({ summary: "게스트 로그인" })
   async loginGuest(@Res({ passthrough: true }) response: Response) {
     const session = await this.authService.loginGuest();
 
@@ -30,6 +39,9 @@ export class AuthController {
   }
 
   @Post("refresh")
+  @ApiOperation({ summary: "세션 갱신" })
+  @ApiCookieAuth()
+  @ApiUnauthorizedResponse({ description: "리프레시 토큰 쿠키가 없거나 유효하지 않음" })
   async refreshSession(
     @Req() request: RequestWithCookies,
     @Res({ passthrough: true }) response: Response,
@@ -59,6 +71,9 @@ export class AuthController {
 
   @Post("logout")
   @HttpCode(204)
+  @ApiOperation({ summary: "로그아웃" })
+  @ApiCookieAuth()
+  @ApiNoContentResponse({ description: "로그아웃 성공" })
   async logout(@Req() request: RequestWithCookies, @Res({ passthrough: true }) response: Response) {
     const refreshToken = request.cookies?.[REFRESH_TOKEN_COOKIE];
 

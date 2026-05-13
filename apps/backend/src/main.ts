@@ -4,6 +4,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import { setupOpenApiDocs } from "./docs/openapi";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -21,6 +22,8 @@ async function bootstrap() {
       transform: true, // 타입 자동 변환
     }),
   );
+
+  setupOpenApiDocs(app);
 
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
 }
