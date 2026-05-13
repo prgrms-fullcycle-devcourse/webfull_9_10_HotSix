@@ -148,6 +148,12 @@ export class BattleService {
   }
 
   buildStatePayload(currentGameState: CurrentGameState) {
+    console.log("[STATE PAYLOAD]", {
+      minPlayers: currentGameState.minPlayers,
+      playerCount: currentGameState.playerCount,
+      phase: currentGameState.phase,
+      waitingEndsAt: currentGameState.waitingEndsAt,
+    });
     return {
       gameId: currentGameState.gameId,
       prompt:

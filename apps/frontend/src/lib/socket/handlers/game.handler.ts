@@ -14,6 +14,7 @@ import type {
 
 export const registerGameHandlers = (socket: Socket) => {
   socket.on("battle:state", (data: BattleStatePayload) => {
+    console.log("[battle:state]", data);
     const stateData = data as BattleStateLike;
 
     const promptContent = stateData.prompt?.content ?? "";
@@ -47,12 +48,19 @@ export const registerGameHandlers = (socket: Socket) => {
   });
 
   socket.on("battle:waiting", (data?: BattleWaitingPayload) => {
+    console.log("[battle:waiting]", data);
+
     const playerCount =
       data?.playerCount ?? data?.waitingPlayerCount ?? useGameStore.getState().participants.length;
 
     const remainingSeconds =
       data?.remainingSeconds ?? data?.countdown ?? useGameStore.getState().countdown;
 
+    console.log("[battle:waiting parsed]", {
+      playerCount,
+      remainingSeconds,
+      currentCountdown: useGameStore.getState().countdown,
+    });
     useGameStore.getState().setWaitingState({
       playerCount,
       remainingSeconds,

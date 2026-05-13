@@ -20,11 +20,7 @@ const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
   const participants = useGameStore((state) => state.participants);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
 
-  const activePlayerCount = participants.filter(
-    (participant) => participant.status !== "dead",
-  ).length;
-
-  const waitingCount = Math.max(waitingPlayerCount - activePlayerCount, 0);
+  const playerCount = Math.max(waitingPlayerCount, participants.length);
 
   const aliveCount = participants.filter((p) => p.life > 0).length;
   const deadCount = participants.filter((p) => p.life <= 0).length;
@@ -35,10 +31,10 @@ const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
       ? {
           alive: aliveCount,
           dead: deadCount,
-          waiting: waitingCount,
+          waiting: playerCount,
         }
       : {
-          waiting: waitingCount,
+          waiting: playerCount,
           language: "한국어",
         });
 
