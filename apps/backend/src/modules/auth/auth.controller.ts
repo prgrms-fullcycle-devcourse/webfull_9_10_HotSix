@@ -1,4 +1,6 @@
 import { Controller, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { ConfigService } from "@nestjs/config";
 import {
   ApiCookieAuth,
   ApiCreatedResponse,
@@ -7,8 +9,6 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
-import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { AuthService } from "./auth.service";
