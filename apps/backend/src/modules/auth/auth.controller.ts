@@ -1,6 +1,7 @@
 import { Controller, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import {
   ApiCookieAuth,
+  ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOperation,
   ApiTags,
@@ -9,6 +10,8 @@ import {
 import type { Request, Response } from "express";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { AuthService } from "./auth.service";
+// biome-ignore lint/style/useImportType: Swagger response schema metadata uses runtime class references.
+import { AuthSessionResponseDto } from "./dto/auth-session-response.dto";
 
 const REFRESH_TOKEN_COOKIE = "refreshToken";
 
@@ -23,6 +26,24 @@ export class AuthController {
 
   @Post("guest/login")
   @ApiOperation({ summary: "게스트 로그인" })
+  @ApiCreatedResponse({
+    description: "로그인 성공",
+    type: AuthSessionResponseDto,
+    example: {
+      user: {
+        id: "8c8e1cfa-5d7a-4f36-8f31-8a0a6d7c0f0b",
+        nickname: "폭주하는타자왕4821",
+        avatarUrl: "https://cdn.example.com/avatars/fox-1.png",
+        createdAt: "2026-05-13T04:00:00.000Z",
+      },
+      tokens: {
+        tokenType: "Bearer",
+        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        expiresIn: 900,
+        accessTokenExpiresAt: "2026-05-13T04:15:00.000Z",
+      },
+    },
+  })
   async loginGuest(@Res({ passthrough: true }) response: Response) {
     const session = await this.authService.loginGuest();
 
@@ -41,6 +62,24 @@ export class AuthController {
   @Post("refresh")
   @ApiOperation({ summary: "세션 갱신" })
   @ApiCookieAuth()
+  @ApiCreatedResponse({
+    description: "세션 갱신 성공",
+    type: AuthSessionResponseDto,
+    example: {
+      user: {
+        id: "8c8e1cfa-5d7a-4f36-8f31-8a0a6d7c0f0b",
+        nickname: "폭주하는타자왕4821",
+        avatarUrl: "https://cdn.example.com/avatars/fox-1.png",
+        createdAt: "2026-05-13T04:00:00.000Z",
+      },
+      tokens: {
+        tokenType: "Bearer",
+        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        expiresIn: 900,
+        accessTokenExpiresAt: "2026-05-13T04:15:00.000Z",
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: "리프레시 토큰 쿠키가 없거나 유효하지 않음" })
   async refreshSession(
     @Req() request: RequestWithCookies,
