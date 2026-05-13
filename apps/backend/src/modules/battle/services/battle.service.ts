@@ -18,7 +18,7 @@ import type { BattleParticipantState } from "../types/battle-participant-state";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
 // const WAITING_DURATION_SECONDS = 15 * 60;
-const WAITING_DURATION_SECONDS = 30;
+const WAITING_DURATION_SECONDS = 20;
 const GAME_DURATION_SECONDS = 15 * 60;
 const FINISHED_DURATION_SECONDS = 30;
 const FINISH_LOCK_TTL_SECONDS = FINISHED_DURATION_SECONDS + 10;
@@ -543,7 +543,7 @@ export class BattleService {
       nextWaitingStartsAt: null,
       phase: "waiting" as const,
       playerCount: 0,
-      minPlayers: 4, // default = 4
+      minPlayers: 2, // default = 4
       prompt,
       rankings: [],
       spectatorCount: 0,
