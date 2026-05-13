@@ -597,9 +597,12 @@ export class BattleService {
           ? input.participantState.lastPenaltyIndex
           : input.comparison.typoIndex,
       life,
-      wpm: this.calculateWpm(input.comparison.acceptedLength, input.currentGameState.gameStartedAt),
+      wpm: this.calculateWpm(
+        Math.max(input.participantState.acceptedLength, input.comparison.acceptedLength),
+        input.currentGameState.gameStartedAt,
+      ),
       progressPercent: this.calculateProgressPercent(
-        input.comparison.acceptedLength,
+        Math.max(input.participantState.acceptedLength, input.comparison.acceptedLength),
         input.comparison.expectedLength,
       ),
       socketId: input.socketId,
