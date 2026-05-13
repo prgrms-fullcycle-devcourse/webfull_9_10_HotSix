@@ -32,27 +32,26 @@ export const useGameData = () => {
       setPrompt(game.prompt.text);
     }
 
-    const scoreboardUserIds = new Set(scoreboard?.map((s) => s.userId) ?? []);
+    const scoreboardMap = new Map(scoreboard?.map((score) => [score.userId, score]) ?? []);
 
-    const filteredParticipants =
-      scoreboardUserIds.size > 0
-        ? (game.participants ?? []).filter((p) => scoreboardUserIds.has(p.userId))
-        : [];
+    const playingParticipants = (game.participants ?? []).filter((participant) =>
+      scoreboardMap.has(participant.userId),
+    );
 
-    const mapped: Participant[] = filteredParticipants.map((p) => {
-      const score = scoreboard?.find((s) => s.userId === p.userId);
+    const mapped: Participant[] = playingParticipants.map((participant) => {
+      const score = scoreboardMap.get(participant.userId);
 
-      const life = score?.life ?? p.life ?? 3;
+      const life = score?.life ?? participant.life ?? 3;
 
       return {
-        participantId: p.userId,
-        nickname: p.nickname,
-        typedLength: p.typedLength ?? 0,
-        progressPercent: p.progressPercent ?? 0,
-        wpm: score?.wpm ?? p.wpm ?? 0,
+        participantId: participant.userId,
+        nickname: participant.nickname,
+        typedLength: participant.typedLength ?? 0,
+        progressPercent: participant.progressPercent ?? 0,
+        wpm: score?.wpm ?? participant.wpm ?? 0,
         life,
-        rank: score?.rank ?? p.rank ?? 0,
-        accuracy: score?.accuracy ?? p.accuracy ?? 100,
+        rank: score?.rank ?? participant.rank ?? 0,
+        accuracy: score?.accuracy ?? participant.accuracy ?? 100,
         status: life === 0 ? "dead" : "playing",
       };
     });
@@ -60,7 +59,7 @@ export const useGameData = () => {
     setParticipants(mapped);
 
     setWaitingState({
-      playerCount: mapped.length,
+      playerCount: game.participants?.length ?? 0,
       remainingSeconds: game.remainingSeconds ?? 23,
     });
   }, [game, scoreboard, setParticipants, setPrompt, setWaitingState]);
