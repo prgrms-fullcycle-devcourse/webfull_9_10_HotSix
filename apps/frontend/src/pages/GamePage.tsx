@@ -59,6 +59,12 @@ const GamePage = () => {
   useEffect(() => {
     if (!socket || !myParticipant?.participantId) return;
 
+    const moveToGameLobby = () => {
+      window.setTimeout(() => {
+        navigate(PATH.GAME_LOBBY);
+      }, 1500);
+    };
+
     const handleEliminated = (data: { participantId: string }) => {
       if (data.participantId !== myParticipant.participantId) return;
 
@@ -69,16 +75,16 @@ const GamePage = () => {
       }, 1500);
     };
 
-    const handleFinished = () => {
-      setGameResult((prev) => {
-        if (prev === "gameOver") return prev;
+    const handleFinished = (data?: { winnerParticipantId?: string }) => {
+      const winnerParticipantId = data?.winnerParticipantId;
 
-        window.setTimeout(() => {
-          navigate(PATH.GAME_LOBBY);
-        }, 1500);
+      const isWinner = winnerParticipantId
+        ? winnerParticipantId === myParticipant.participantId
+        : myParticipant.progressPercent >= 100;
 
-        return "winner";
-      });
+      setGameResult(isWinner ? "winner" : "gameOver");
+
+      moveToGameLobby();
     };
 
     socket.on(BATTLE_SOCKET_EVENTS.ELIMINATED, handleEliminated);
@@ -88,7 +94,7 @@ const GamePage = () => {
       socket.off(BATTLE_SOCKET_EVENTS.ELIMINATED, handleEliminated);
       socket.off(BATTLE_SOCKET_EVENTS.FINISHED, handleFinished);
     };
-  }, [socket, myParticipant?.participantId, navigate]);
+  }, [socket, myParticipant, navigate]);
 
   const handleInputChange = (
     inputText: string,
@@ -126,7 +132,7 @@ const GamePage = () => {
       <div className="bg-surface-main flex h-dvh w-full items-center justify-center">
         <div className="rounded-2xl bg-white px-16 py-12 text-center shadow-lg">
           <h1 className="text-4xl font-bold text-red-500">Game Over</h1>
-          <p className="mt-4 text-lg text-gray-500">관전방으로 이동합니다...</p>
+          <p className="mt-4 text-lg text-gray-500">잠시 후 이동합니다...</p>
         </div>
       </div>
     );
