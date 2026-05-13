@@ -56,11 +56,14 @@ pnpm --filter @keyboard-warrior/backend build
 ## API 문서
 
 - Swagger UI: `http://localhost:3000/docs`
+- OpenAPI JSON: `http://localhost:3000/docs/openapi.json`
 - OpenAPI YAML: `http://localhost:3000/docs/openapi.yaml`
 - 요구사항 명세: `http://localhost:3000/docs/requirements`
 - ERD 문서: `http://localhost:3000/docs/erd`
 - Socket.IO 명세: `http://localhost:3000/docs/socket-io`
 - Redis 명세: `http://localhost:3000/docs/redis`
+
+Swagger/OpenAPI 스펙은 `openapi.yaml`을 수동으로 수정하지 않고, 컨트롤러와 DTO 코드를 기준으로 애플리케이션 부팅 시 자동 생성합니다.
 
 ## 환경 변수
 

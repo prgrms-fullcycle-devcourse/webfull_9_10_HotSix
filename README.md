@@ -119,6 +119,7 @@ pnpm --filter @keyboard-warrior/backend dev
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
 - Swagger UI: `http://localhost:3000/docs`
+- OpenAPI JSON: `http://localhost:3000/docs/openapi.json`
 - OpenAPI YAML: `http://localhost:3000/docs/openapi.yaml`
 - Requirements: `http://localhost:3000/docs/requirements`
 - ERD: `http://localhost:3000/docs/erd`
@@ -158,12 +159,13 @@ pnpm --filter @keyboard-warrior/backend test
 
 ## 문서 파일
 
-백엔드 문서 파일은 [apps/backend/docs](/Users/a2485/Documents/webfull_9_10_HotSix/apps/backend/docs) 아래에서 관리합니다.
+백엔드 정적 문서 파일은 [apps/backend/docs](/Users/a2485/Documents/webfull_9_10_HotSix/apps/backend/docs) 아래에서 관리합니다.
 
-- `openapi.yaml`
 - `requirements.md`
 - `erd.md`
 - `redis-spec.md`
+
+OpenAPI 스펙은 `apps/backend/src`의 컨트롤러와 DTO를 기준으로 서버 부팅 시 자동 생성됩니다.
 - `redis-spec.html`
 - `supabase-schema.sql`
 
