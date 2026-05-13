@@ -34,9 +34,13 @@ export const useGameData = () => {
 
     const scoreboardMap = new Map(scoreboard?.map((score) => [score.userId, score]) ?? []);
 
-    const playingParticipants = (game.participants ?? []).filter((participant) =>
-      scoreboardMap.has(participant.userId),
-    );
+    const hasScoreboard = (scoreboard?.length ?? 0) > 0;
+
+    const participants = game.participants ?? [];
+
+    const playingParticipants = hasScoreboard
+      ? participants.filter((participant) => scoreboardMap.has(participant.userId))
+      : participants;
 
     const mapped: Participant[] = playingParticipants.map((participant) => {
       const score = scoreboardMap.get(participant.userId);
@@ -59,8 +63,8 @@ export const useGameData = () => {
     setParticipants(mapped);
 
     setWaitingState({
-      playerCount: game.participants?.length ?? 0,
-      remainingSeconds: game.remainingSeconds ?? 23,
+      playerCount: participants.length,
+      remainingSeconds: game.remainingSeconds ?? 0,
     });
   }, [game, scoreboard, setParticipants, setPrompt, setWaitingState]);
 };
