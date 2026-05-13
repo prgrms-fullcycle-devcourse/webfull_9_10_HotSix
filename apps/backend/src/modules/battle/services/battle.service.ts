@@ -18,7 +18,7 @@ import type { BattleParticipantState } from "../types/battle-participant-state";
 import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
 
 // const WAITING_DURATION_SECONDS = 15 * 60;
-const WAITING_DURATION_SECONDS = 20;
+const WAITING_DURATION_SECONDS = 30;
 const GAME_DURATION_SECONDS = 15 * 60;
 const FINISHED_DURATION_SECONDS = 30;
 const FINISH_LOCK_TTL_SECONDS = FINISHED_DURATION_SECONDS + 10;
