@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { ConfigService } from "@nestjs/config";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { JwtService } from "@nestjs/jwt";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { UsersService } from "../users/users.service";
@@ -30,6 +32,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async loginGuest(): Promise<AuthSessionResult> {
@@ -129,7 +132,7 @@ export class AuthService {
   }
 
   private async signAccessToken(userId: string) {
-    const secret = process.env.JWT_SECRET;
+    const secret = this.configService.getOrThrow<string>("JWT_SECRET");
 
     if (!secret) {
       throw new Error("JWT_SECRET is not configured.");
@@ -155,11 +158,11 @@ export class AuthService {
   }
 
   private getAccessTokenTtlSeconds() {
-    return Number(process.env.ACCESS_TOKEN_TTL_SECONDS ?? 900);
+    return this.configService.get<number>("ACCESS_TOKEN_TTL_SECONDS", 900);
   }
 
   private getRefreshTokenTtlDays() {
-    return Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? 30);
+    return this.configService.get<number>("REFRESH_TOKEN_TTL_DAYS", 30);
   }
 
   private buildAccessTokenExpiry() {

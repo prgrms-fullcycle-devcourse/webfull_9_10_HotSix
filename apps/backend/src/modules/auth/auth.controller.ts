@@ -7,6 +7,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { AuthService } from "./auth.service";
@@ -22,7 +24,10 @@ type RequestWithCookies = Request & {
 @ApiTags("auth")
 @Controller("v1/auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post("guest/login")
   @ApiOperation({ summary: "게스트 로그인" })
@@ -123,10 +128,10 @@ export class AuthController {
   private setRefreshTokenCookie(response: Response, refreshToken: string, expiresAt: Date) {
     response.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
       httpOnly: true,
-      secure: process.env.COOKIE_SECURE === "true",
-      sameSite: process.env.COOKIE_SECURE === "true" ? "none" : "lax",
+      secure: this.configService.get<boolean>("COOKIE_SECURE", false),
+      sameSite: this.configService.get<boolean>("COOKIE_SECURE", false) ? "none" : "lax",
       path: "/",
-      domain: process.env.COOKIE_DOMAIN || undefined,
+      domain: this.configService.get<string>("COOKIE_DOMAIN") || undefined,
       expires: expiresAt,
     });
   }
@@ -134,10 +139,10 @@ export class AuthController {
   private clearRefreshTokenCookie(response: Response) {
     response.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
-      secure: process.env.COOKIE_SECURE === "true",
-      sameSite: process.env.COOKIE_SECURE === "true" ? "none" : "lax",
+      secure: this.configService.get<boolean>("COOKIE_SECURE", false),
+      sameSite: this.configService.get<boolean>("COOKIE_SECURE", false) ? "none" : "lax",
       path: "/",
-      domain: process.env.COOKIE_DOMAIN || undefined,
+      domain: this.configService.get<string>("COOKIE_DOMAIN") || undefined,
     });
   }
 }

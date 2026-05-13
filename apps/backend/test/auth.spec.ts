@@ -1,4 +1,6 @@
 import { type INestApplication, UnauthorizedException } from "@nestjs/common";
+// biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
+import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import cookieParser from "cookie-parser";
 import request from "supertest";
@@ -42,6 +44,19 @@ describe("Auth API", () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
+            getOrThrow: jest.fn((key: string) => {
+              const values: Record<string, string> = {
+                COOKIE_SECURE: "false",
+                COOKIE_DOMAIN: "",
+              };
+              return values[key] ?? "";
+            }),
+          },
         },
       ],
     }).compile();
