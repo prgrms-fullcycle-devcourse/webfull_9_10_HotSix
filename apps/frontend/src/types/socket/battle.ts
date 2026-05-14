@@ -18,7 +18,7 @@ export type BattleParticipant = {
   typoCount?: number;
   lastPenaltyIndex?: number | null;
 
-  status?: string;
+  status: "playing" | "finished" | "eliminated" | "spectating";
 
   lastInputAt?: string;
   eliminatedAt?: string | null;

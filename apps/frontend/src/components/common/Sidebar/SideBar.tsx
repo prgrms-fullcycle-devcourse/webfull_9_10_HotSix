@@ -1,7 +1,7 @@
 import type { PageMode } from "@/types";
 
 import RoomInfo from "./RoomInfo";
-import { UserListPanel } from "./userList";
+import UserListPanel from "./userList/UserListPanel";
 
 interface SidebarProps {
   mode: PageMode;

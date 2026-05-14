@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { getGameDetail, getScoreBoard } from "@/api/game.api";
-import { type Participant, useGameStore } from "@/stores/useGameStore";
+import { useGameStore } from "@/stores/useGameStore";
+import type { Participant } from "@/types/game/participant";
 
 export const useGameDetail = () => {
   return useQuery({
@@ -28,8 +29,8 @@ export const useGameData = () => {
   useEffect(() => {
     if (!game) return;
 
-    if (game.prompt?.text) {
-      setPrompt(game.prompt.text);
+    if (game.prompt?.content) {
+      setPrompt(game.prompt.content);
     }
 
     const scoreboardMap = new Map(scoreboard?.map((score) => [score.userId, score]) ?? []);
@@ -42,21 +43,21 @@ export const useGameData = () => {
       ? participants.filter((participant) => scoreboardMap.has(participant.userId))
       : participants;
 
-    const mapped: Participant[] = playingParticipants.map((participant) => {
-      const score = scoreboardMap.get(participant.userId);
+    const mapped: Participant[] = playingParticipants.map((p) => {
+      const score = scoreboardMap.get(p.userId);
 
-      const life = score?.life ?? participant.life ?? 3;
+      const life = score?.life ?? p.life ?? 3;
 
       return {
-        participantId: participant.userId,
-        nickname: participant.nickname,
-        typedLength: participant.typedLength ?? 0,
-        progressPercent: participant.progressPercent ?? 0,
-        wpm: score?.wpm ?? participant.wpm ?? 0,
-        life,
-        rank: score?.rank ?? participant.rank ?? 0,
-        accuracy: score?.accuracy ?? participant.accuracy ?? 100,
-        status: life === 0 ? "dead" : "playing",
+        participantId: p.userId,
+        nickname: p.nickname,
+        acceptedLength: p.acceptedLength ?? 0,
+        progressPercent: p.progressPercent ?? 0,
+        wpm: score?.wpm ?? p.wpm ?? 0,
+        life: p.life,
+        rank: score?.rank ?? p.rank ?? 0,
+        accuracy: score?.accuracy ?? p.accuracy ?? 100,
+        status: life === 0 ? "eliminated" : "playing",
       };
     });
 

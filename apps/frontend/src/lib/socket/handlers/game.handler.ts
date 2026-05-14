@@ -1,5 +1,6 @@
 import type { Socket } from "socket.io-client";
-import { type Participant, useGameStore } from "@/stores/useGameStore";
+import { useGameStore } from "@/stores/useGameStore";
+import type { Participant } from "@/types/game/participant";
 import type {
   BattleParticipant,
   BattleStateLike,
@@ -18,14 +19,15 @@ const mapParticipant = (participant: BattleParticipant): Participant => ({
 
   nickname: participant.nickname ?? "플레이어",
   progressPercent: participant.progressPercent ?? 0,
-  typedLength: participant.acceptedLength ?? participant.typedLength ?? 0,
+  acceptedLength: participant.acceptedLength ?? participant.typedLength ?? 0,
   wpm: participant.wpm ?? 0,
   accuracy: participant.accuracy ?? 100,
   life: participant.life ?? 3,
-  status: participant.status === "dead" ? "dead" : "playing",
+  status: participant.status,
 });
 
 export const registerGameHandlers = (socket: Socket) => {
+  const store = useGameStore.getState();
   socket.off("battle:state");
   socket.off("battle:waiting");
   socket.off("battle:started");
@@ -45,10 +47,10 @@ export const registerGameHandlers = (socket: Socket) => {
     const promptContent = stateData.prompt?.content ?? "";
 
     if (promptContent) {
-      useGameStore.getState().setPrompt(promptContent);
+      store.setPrompt(promptContent);
     }
 
-    useGameStore.getState().setPhase(stateData.phase);
+    store.setPhase(stateData.phase);
 
     const participants = stateData.participants ?? [];
     console.log("[battle:state participants]", {
@@ -61,12 +63,12 @@ export const registerGameHandlers = (socket: Socket) => {
     const playerCount =
       stateData.playerCount ?? stateData.waitingPlayerCount ?? participants.length;
 
-    useGameStore.getState().setWaitingState({
+    store.setWaitingState({
       playerCount,
       remainingSeconds: stateData.remainingSeconds ?? stateData.countdown ?? 0,
     });
 
-    useGameStore.getState().setParticipants(participants.map(mapParticipant));
+    store.setParticipants(participants.map(mapParticipant));
   });
 
   socket.on("battle:waiting", (data?: BattleWaitingPayload) => {
@@ -76,8 +78,7 @@ export const registerGameHandlers = (socket: Socket) => {
 
     console.log("[battle:waiting]", data);
 
-    const playerCount =
-      data?.playerCount ?? data?.waitingPlayerCount ?? useGameStore.getState().participants.length;
+    const playerCount = data?.playerCount ?? data?.waitingPlayerCount ?? store.participants.length;
 
     const remainingSeconds = data?.remainingSeconds ?? data?.countdown ?? 0;
 
@@ -86,7 +87,7 @@ export const registerGameHandlers = (socket: Socket) => {
       remainingSeconds,
     });
 
-    useGameStore.getState().setWaitingState({
+    store.setWaitingState({
       playerCount,
       remainingSeconds,
     });
@@ -97,10 +98,10 @@ export const registerGameHandlers = (socket: Socket) => {
     const promptContent = data.prompt?.content ?? "";
 
     if (promptContent) {
-      useGameStore.getState().setPrompt(promptContent);
+      store.setPrompt(promptContent);
     }
 
-    useGameStore.getState().setPhase("in_progress");
+    store.setPhase("in_progress");
   });
 
   socket.on("battle:progress", (data: BattleProgressPayload) => {
@@ -110,7 +111,7 @@ export const registerGameHandlers = (socket: Socket) => {
 
     const participant = data.participant as BattleParticipant;
 
-    useGameStore.getState().updateParticipant(mapParticipant(participant));
+    store.updateParticipant(mapParticipant(participant));
   });
 
   socket.on("battle:input-result", (data) => {
@@ -118,10 +119,10 @@ export const registerGameHandlers = (socket: Socket) => {
   });
 
   socket.on("battle:eliminated", (data: BattleEliminatedPayload) => {
-    useGameStore.getState().eliminateParticipant(data.participantId);
+    store.eliminateParticipant(data.participantId);
   });
 
   socket.on("battle:finished", () => {
-    useGameStore.getState().setPhase("finished");
+    store.setPhase("finished");
   });
 };

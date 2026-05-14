@@ -1,22 +1,23 @@
 import { useGameStore } from "@/stores/useGameStore";
+import type { PageMode } from "@/types";
 
-interface RoomStats {
+interface GameStats {
   alive: number;
   dead: number;
   waiting: number;
 }
 
-interface GameStats {
+interface RoomStats {
   waiting: number;
   language: string;
 }
 
 interface RoomInfoProps {
-  mode: "game" | "watch" | "waiting";
+  mode: PageMode;
   stats?: RoomStats | GameStats;
 }
 
-const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
+const RoomInfo = ({ mode }: RoomInfoProps) => {
   const participants = useGameStore((state) => state.participants);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
 
@@ -26,8 +27,7 @@ const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
   const deadCount = participants.filter((p) => p.life <= 0).length;
 
   const displayStats =
-    stats ??
-    (mode === "watch"
+    mode === "spectate" || mode === "game"
       ? {
           alive: aliveCount,
           dead: deadCount,
@@ -36,44 +36,44 @@ const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
       : {
           waiting: playerCount,
           language: "한국어",
-        });
+        };
 
   return (
     <section className="w-[220px] flex-shrink-0 border-4 border-black bg-surface-main px-3 py-3 shadow-[8px_8px_0_#000] ">
       <h3 className="text-sm font-semibold text-text mb-3">방 정보</h3>
 
       <div className="h-[7rem] flex flex-col justify-center border-4 border-black bg-surface-sub px-4 py-4 space-y-2 shadow-[inset_-4px_-4px_0_rgba(255,255,255,0.5),inset_4px_4px_0_rgba(0,0,0,0.1)]">
-        {mode === "watch" && (
+        {["game", "spectate"].includes(mode) && (
           <>
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">생존자</span>
               <span className="text-sm font-normal text-point-mint">
-                {(displayStats as RoomStats).alive}
+                {(displayStats as GameStats).alive}
               </span>
             </div>
 
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">사망자</span>
               <span className="text-sm font-normal text-point-red">
-                {(displayStats as RoomStats).dead}
+                {(displayStats as GameStats).dead}
               </span>
             </div>
 
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">대기자</span>
               <span className="text-sm font-normal text-point-yellow">
-                {(displayStats as RoomStats).waiting}
+                {(displayStats as GameStats).waiting}
               </span>
             </div>
           </>
         )}
 
-        {["game", "waiting"].includes(mode) && (
+        {mode === "waiting" && (
           <>
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">대기자</span>
               <span className="text-sm font-normal text-point-yellow">
-                {(displayStats as GameStats).waiting}
+                {(displayStats as RoomStats).waiting}
               </span>
             </div>
 
@@ -82,7 +82,7 @@ const RoomInfo = ({ mode, stats }: RoomInfoProps) => {
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">언어</span>
               <span className="text-sm font-normal text-text">
-                {(displayStats as GameStats).language}
+                {(displayStats as RoomStats).language}
               </span>
             </div>
           </>
