@@ -9,6 +9,7 @@ import SideBar from "@/components/common/Sidebar/SideBar";
 import ParticipantCard from "@/components/spectator/ParticipantCard";
 
 import { PATH } from "@/constants/route";
+import { useGameData } from "@/hooks/useGame";
 
 import { createBattleSocket } from "@/lib/socket/battleSocket";
 import type { BattleProgressPayload } from "@/lib/socket/socket.types";
@@ -56,6 +57,8 @@ const SpectatePage = () => {
       if (socket) socket.disconnect();
     };
   }, [accessToken]);
+
+  useGameData();
 
   const participants = useGameStore((s) => s.participants);
   const prompt = useGameStore((s) => s.prompt);
