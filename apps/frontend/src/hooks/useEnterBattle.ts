@@ -9,6 +9,10 @@ import { useSocketStore } from "@/stores/useSocketStore";
 
 let isEnteringBattle = false;
 
+const getNextPath = (phase: string) => {
+  return phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY;
+};
+
 export const useEnterBattle = () => {
   const navigate = useNavigate();
 
@@ -22,7 +26,7 @@ export const useEnterBattle = () => {
 
       if (currentSocket?.connected) {
         const game = await getGameDetail();
-        const nextPath = game.game.phase === "in_progress" ? PATH.GAME : PATH.GAME_LOBBY;
+        const nextPath = getNextPath(game.game.phase);
 
         navigate(nextPath, {
           replace: true,
@@ -41,7 +45,7 @@ export const useEnterBattle = () => {
       registerGameHandlers(socket);
 
       const game = await getGameDetail();
-      const nextPath = game.game.phase === "in_progress" ? PATH.GAME : PATH.GAME_LOBBY;
+      const nextPath = getNextPath(game.game.phase);
 
       navigate(nextPath, {
         replace: true,
