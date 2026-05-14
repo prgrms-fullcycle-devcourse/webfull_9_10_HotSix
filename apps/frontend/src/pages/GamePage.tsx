@@ -1,6 +1,6 @@
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import SideBar from "@/components/common/Sidebar/SideBar";
 import { GameProgress } from "@/components/game/GameProgress";
 import { RaceTrack } from "@/components/game/RaceTrack";
@@ -10,6 +10,8 @@ import { useGameData } from "@/hooks/useGame";
 import { BATTLE_SOCKET_EVENTS } from "@/lib/socket/socketEvents";
 import { useGameStore } from "@/stores/useGameStore";
 import { useSocketStore } from "@/stores/useSocketStore";
+
+type GameResult = "playing" | "gameOver" | "winner";
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -25,12 +27,13 @@ const getPromptLength = (prompt: string) => {
 const GamePage = () => {
   useGameData();
 
+  const navigate = useNavigate();
   const socket = useSocketStore((state) => state.socket);
 
   const prompt = useGameStore((state) => state.prompt);
   const participants = useGameStore((state) => state.participants);
-  console.log("socket.id:", socket?.id);
-  console.log("participants:", participants);
+
+  const [gameResult, setGameResult] = useState<GameResult>("playing");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localTypingCount, setLocalTypingCount] = useState(0);
   const [localAccuracy, setLocalAccuracy] = useState(100);
@@ -52,6 +55,46 @@ const GamePage = () => {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!socket || !myParticipant?.participantId) return;
+
+    const moveToGameLobby = () => {
+      window.setTimeout(() => {
+        navigate(PATH.GAME_LOBBY);
+      }, 1500);
+    };
+
+    const handleEliminated = (data: { participantId: string }) => {
+      if (data.participantId !== myParticipant.participantId) return;
+
+      setGameResult("gameOver");
+
+      window.setTimeout(() => {
+        navigate(PATH.SPECTATE);
+      }, 1500);
+    };
+
+    const handleFinished = (data?: { winnerParticipantId?: string }) => {
+      const winnerParticipantId = data?.winnerParticipantId;
+
+      const isWinner = winnerParticipantId
+        ? winnerParticipantId === myParticipant.participantId
+        : myParticipant.progressPercent >= 100;
+
+      setGameResult(isWinner ? "winner" : "gameOver");
+
+      moveToGameLobby();
+    };
+
+    socket.on(BATTLE_SOCKET_EVENTS.ELIMINATED, handleEliminated);
+    socket.on(BATTLE_SOCKET_EVENTS.FINISHED, handleFinished);
+
+    return () => {
+      socket.off(BATTLE_SOCKET_EVENTS.ELIMINATED, handleEliminated);
+      socket.off(BATTLE_SOCKET_EVENTS.FINISHED, handleFinished);
+    };
+  }, [socket, myParticipant, navigate]);
 
   const handleInputChange = (
     inputText: string,
@@ -83,6 +126,28 @@ const GamePage = () => {
   const handleWrongInput = () => {
     // 서버에서 life를 관리하므로 여기서는 별도 처리하지 않음
   };
+
+  if (gameResult === "gameOver") {
+    return (
+      <div className="bg-surface-main flex h-dvh w-full items-center justify-center">
+        <div className="rounded-2xl bg-white px-16 py-12 text-center shadow-lg">
+          <h1 className="text-4xl font-bold text-red-500">Game Over</h1>
+          <p className="mt-4 text-lg text-gray-500">잠시 후 이동합니다...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameResult === "winner") {
+    return (
+      <div className="bg-surface-main flex h-dvh w-full items-center justify-center">
+        <div className="rounded-2xl bg-white px-16 py-12 text-center shadow-lg">
+          <h1 className="text-4xl font-bold text-state-active">Victory!</h1>
+          <p className="mt-4 text-lg text-gray-500">대기방으로 이동합니다...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-surface-main relative flex h-dvh w-full overflow-hidden">
