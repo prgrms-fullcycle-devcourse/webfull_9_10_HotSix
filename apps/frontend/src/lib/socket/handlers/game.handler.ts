@@ -44,6 +44,12 @@ export const registerGameHandlers = (socket: Socket) => {
     useGameStore.getState().setPhase(stateData.phase);
 
     const participants = stateData.participants ?? [];
+    console.log("[battle:state participants]", {
+      participants: stateData.participants,
+      participantsLength: stateData.participants?.length ?? 0,
+      playerCount: stateData.playerCount,
+      waitingPlayerCount: stateData.waitingPlayerCount,
+    });
 
     const playerCount =
       stateData.playerCount ?? stateData.waitingPlayerCount ?? participants.length;
@@ -86,6 +92,8 @@ export const registerGameHandlers = (socket: Socket) => {
   });
 
   socket.on("battle:progress", (data: BattleProgressPayload) => {
+    console.log("[battle:progress raw]", JSON.stringify(data, null, 2));
+
     if (!data?.participant) return;
 
     const participant = data.participant as BattleParticipant;

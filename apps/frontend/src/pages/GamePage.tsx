@@ -36,14 +36,18 @@ const GamePage = () => {
   const [gameResult, setGameResult] = useState<GameResult>("playing");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localTypingCount, setLocalTypingCount] = useState(0);
-  const [localAccuracy, setLocalAccuracy] = useState(100);
+  const [localAccuracy, setLocalAccuracy] = useState(0);
   const [localProgress, setLocalProgress] = useState(0);
 
   const myParticipant = participants[0];
+  console.log("participants", participants);
+  console.log("myParticipant", myParticipant);
+  console.log("participant keys", Object.keys(myParticipant ?? {}));
+  console.log("socket id", socket?.id);
 
   const progress = myParticipant?.progressPercent ?? localProgress;
   const typingCount = myParticipant?.typedLength ?? localTypingCount;
-  const accuracy = myParticipant?.accuracy ?? localAccuracy;
+  const accuracy = typingCount === 0 ? 0 : (myParticipant?.accuracy ?? localAccuracy);
   const life = myParticipant?.life ?? 3;
 
   useEffect(() => {
@@ -113,7 +117,7 @@ const GamePage = () => {
     const totalCorrectCount = completedCorrectCount + correctCount;
 
     const nextAccuracy =
-      totalTypingCount === 0 ? 100 : Math.floor((totalCorrectCount / totalTypingCount) * 100);
+      totalTypingCount === 0 ? 0 : Math.floor((totalCorrectCount / totalTypingCount) * 100);
 
     const nextProgress =
       totalLength === 0 ? 0 : Math.min(Math.floor((totalCorrectCount / totalLength) * 100), 100);
