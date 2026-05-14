@@ -68,7 +68,9 @@ export const registerGameHandlers = (socket: Socket) => {
       remainingSeconds: stateData.remainingSeconds ?? stateData.countdown ?? 0,
     });
 
-    store.setParticipants(participants.map(mapParticipant));
+    participants.map(mapParticipant).forEach((p) => {
+      useGameStore.getState().updateParticipant(p);
+    });
   });
 
   socket.on("battle:waiting", (data?: BattleWaitingPayload) => {

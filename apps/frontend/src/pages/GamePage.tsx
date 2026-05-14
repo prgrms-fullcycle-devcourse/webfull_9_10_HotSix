@@ -7,6 +7,7 @@ import TypingGame from "@/components/game/TypingGame/TypingGame";
 import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
 import { BATTLE_SOCKET_EVENTS } from "@/lib/socket/socketEvents";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useGameStore } from "@/stores/useGameStore";
 import { useSocketStore } from "@/stores/useSocketStore";
 
@@ -39,8 +40,10 @@ const GamePage = () => {
   const [localAccuracy, setLocalAccuracy] = useState(0);
   const [localProgress, setLocalProgress] = useState(0);
 
-  const myParticipant =
-    participants.find((participant) => participant.socketId === socket?.id) ?? participants[0];
+  const [completedText, setCompletedText] = useState("");
+
+  const myUserId = useAuthStore((s) => s.user?.id);
+  const myParticipant = participants.find((p) => p.participantId === myUserId);
 
   const progress = Math.min(100, Math.max(0, myParticipant?.progressPercent ?? localProgress));
 
@@ -113,6 +116,9 @@ const GamePage = () => {
       console.warn("[battle:input skipped] gameId가 없습니다.");
       return;
     }
+
+    const accumulatedText = completedText + inputText;
+
     console.log("[battle:input payload]", {
       raw: inputText,
       json: JSON.stringify(inputText),
@@ -122,7 +128,7 @@ const GamePage = () => {
     });
     socket?.emit(BATTLE_SOCKET_EVENTS.INPUT, {
       gameId,
-      typedText: inputText,
+      typedText: accumulatedText,
       cursorPosition: inputText.length,
     });
 
@@ -143,6 +149,9 @@ const GamePage = () => {
 
   const handleWrongInput = () => {
     // 서버에서 life를 관리하므로 여기서는 별도 처리하지 않음
+  };
+  const handleLineComplete = (completeLine: string) => {
+    setCompletedText((prev) => prev + completeLine);
   };
 
   if (gameResult === "gameOver") {
@@ -191,6 +200,7 @@ const GamePage = () => {
                   life={life}
                   onInputChange={handleInputChange}
                   onWrongInput={handleWrongInput}
+                  onLineComplete={handleLineComplete}
                 />
               </div>
             </div>

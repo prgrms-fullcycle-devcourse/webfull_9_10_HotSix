@@ -16,6 +16,7 @@ type TypingGameProps = {
     completedCorrectCount?: number,
   ) => void;
   onWrongInput?: () => void;
+  onLineComplete?: (completedLine: string) => void;
 };
 
 function getMatchState(
@@ -38,7 +39,13 @@ function getMatchState(
   return "wrong";
 }
 
-const TypingGame = ({ prompt, life, onInputChange, onWrongInput }: TypingGameProps) => {
+const TypingGame = ({
+  prompt,
+  life,
+  onInputChange,
+  onWrongInput,
+  onLineComplete,
+}: TypingGameProps) => {
   const lines = prompt.split("\n");
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -118,6 +125,8 @@ const TypingGame = ({ prompt, life, onInputChange, onWrongInput }: TypingGamePro
     setCompletedTypingCount((prev) => prev + currentInput.length);
 
     setCompletedCorrectCount((prev) => prev + currentCorrectCount);
+
+    onLineComplete?.(`${currentInput}\n`);
 
     setLineIndex((prev) => Math.min(prev + 1, lines.length));
 

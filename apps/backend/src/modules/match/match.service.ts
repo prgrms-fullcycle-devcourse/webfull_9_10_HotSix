@@ -70,6 +70,7 @@ export class MatchService {
 
   async getAllUsers(): Promise<MatchPlayerDto[]> {
     const userIds = await this.redisService.instance.smembers("lobby:players");
+    const currentGameId = await this.redisService.instance.get("battle:current-game-id");
 
     if (userIds.length === 0) return [];
 
@@ -77,6 +78,13 @@ export class MatchService {
       userIds.map(async (userId) => {
         const profile = await this.redisService.instance.hgetall(`lobby:player:${userId}`);
         if (!profile || Object.keys(profile).length === 0) return null;
+
+        if (currentGameId) {
+          const activeConnection = await this.redisService.instance.get(
+            `battle:game:${currentGameId}:active-connection:${userId}`,
+          );
+          if (!activeConnection) return null;
+        }
 
         return {
           userId: userId,
