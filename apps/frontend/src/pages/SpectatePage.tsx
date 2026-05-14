@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import settingIcon from "@/assets/icons/settingIcon.svg";
 import BgImage from "@/assets/images/racing_night.svg";
@@ -7,6 +8,8 @@ import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
 import { useGameStore } from "@/stores/useGameStore";
 
+const REDIRECT_DELAY = 3;
+
 const SpectatePage = () => {
   const navigate = useNavigate();
 
@@ -14,6 +17,30 @@ const SpectatePage = () => {
 
   const participants = useGameStore((s) => s.participants);
   const prompt = useGameStore((s) => s.prompt);
+  // const phase = useGameStore((s) => s.phase);
+  const phase = "finished";
+
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  // 게임 종료 후 대기방 이동
+  useEffect(() => {
+    if (phase !== "finished") return;
+
+    let count = REDIRECT_DELAY;
+    setRemaining(count);
+
+    const interval = setInterval(() => {
+      count -= 1;
+      setRemaining(count);
+
+      if (count <= 0) {
+        clearInterval(interval);
+        navigate(PATH.GAME_LOBBY);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [navigate]);
 
   return (
     <div
@@ -78,6 +105,25 @@ const SpectatePage = () => {
       >
         <img src={settingIcon} alt="설정" />
       </button>
+
+      {/* 게임 종료 모달 */}
+      {phase === "finished" && remaining !== null && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="border-4 border-black bg-surface-main px-10 py-8 text-center shadow-lg">
+            <p className="font-pixel mb-3 text-2xl font-bold">게임 종료</p>
+
+            <p className="font-pixel text-base text-0">{remaining}초 후 대기방으로 이동합니다...</p>
+
+            <button
+              type="button"
+              onClick={() => navigate(PATH.GAME_LOBBY)}
+              className="font-pixel mt-4 border-2 border-black px-4 py-2 text-sm hover:bg-black hover:text-white"
+            >
+              바로 이동
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
