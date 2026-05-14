@@ -27,6 +27,7 @@ export const useGameData = () => {
 
   useEffect(() => {
     if (!game) return;
+    if (useGameStore.getState().participants.length > 0) return;
 
     if (game.prompt?.text) {
       setPrompt(game.prompt.text);
