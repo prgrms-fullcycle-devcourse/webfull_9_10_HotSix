@@ -8,7 +8,7 @@ import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
 import { useGameStore } from "@/stores/useGameStore";
 
-const MIN_PLAYERS = 4;
+const MIN_PLAYERS = 1;
 
 const GameLobbyPage = () => {
   const navigate = useNavigate();

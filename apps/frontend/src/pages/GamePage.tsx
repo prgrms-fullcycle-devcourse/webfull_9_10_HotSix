@@ -113,6 +113,13 @@ const GamePage = () => {
       console.warn("[battle:input skipped] gameId가 없습니다.");
       return;
     }
+    console.log("[battle:input payload]", {
+      raw: inputText,
+      json: JSON.stringify(inputText),
+      length: inputText.length,
+      lastChar: inputText.at(-1),
+      charCode: inputText.at(-1)?.charCodeAt(0),
+    });
     socket?.emit(BATTLE_SOCKET_EVENTS.INPUT, {
       gameId,
       typedText: inputText,
