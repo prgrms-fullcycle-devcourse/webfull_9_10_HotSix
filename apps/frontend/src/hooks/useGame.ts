@@ -23,7 +23,7 @@ export const useGameData = () => {
   const { data: game } = useGameDetail();
   const { data: scoreboard } = useScoreboard();
 
-  const { setParticipants, setPrompt, setWaitingState } = useGameStore();
+  const { setParticipants, setPrompt } = useGameStore();
 
   useEffect(() => {
     if (!game) return;
@@ -61,10 +61,5 @@ export const useGameData = () => {
     });
 
     setParticipants(mapped);
-
-    setWaitingState({
-      playerCount: participants.length,
-      remainingSeconds: game.remainingSeconds ?? 0,
-    });
-  }, [game, scoreboard, setParticipants, setPrompt, setWaitingState]);
+  }, [game, scoreboard, setParticipants, setPrompt]);
 };
