@@ -54,7 +54,7 @@ export const useGameData = () => {
         acceptedLength: p.acceptedLength ?? 0,
         progressPercent: p.progressPercent ?? 0,
         wpm: score?.wpm ?? p.wpm ?? 0,
-        life: p.life,
+        life,
         rank: score?.rank ?? p.rank ?? 0,
         accuracy: score?.accuracy ?? p.accuracy ?? 100,
         status: life === 0 ? "eliminated" : "playing",
