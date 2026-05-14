@@ -16,13 +16,12 @@ const GameLobbyPage = () => {
   useGameData();
 
   const phase = useGameStore((state) => state.phase);
-  const participants = useGameStore((state) => state.participants);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
   const countdown = useGameStore((state) => state.countdown);
   const previousWinner = useGameStore((state) => state.previousWinner);
   const previousGameDuration = useGameStore((state) => state.previousGameDuration);
 
-  const playerCount = Math.max(waitingPlayerCount, participants.length);
+  const playerCount = waitingPlayerCount;
   const winnerText = previousWinner || "-";
   const durationText = previousGameDuration || "00:00";
 
