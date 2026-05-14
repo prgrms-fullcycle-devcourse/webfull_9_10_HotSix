@@ -4,7 +4,8 @@ import type { PageMode } from "@/types";
 interface GameStats {
   alive: number;
   dead: number;
-  waiting: number;
+  participants: number;
+  spectators: number;
 }
 
 interface RoomStats {
@@ -19,22 +20,24 @@ interface RoomInfoProps {
 
 const RoomInfo = ({ mode }: RoomInfoProps) => {
   const participants = useGameStore((state) => state.participants);
+  const waitingPlayers = useGameStore((state) => state.waitingPlayers);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
-
-  const playerCount = Math.max(waitingPlayerCount, participants.length);
+  const spectatorCount = useGameStore((state) => state.spectatorCount);
 
   const aliveCount = participants.filter((p) => p.life > 0).length;
   const deadCount = participants.filter((p) => p.life <= 0).length;
+  const waitingCount = waitingPlayers.length || waitingPlayerCount;
 
   const displayStats =
     mode === "spectate" || mode === "game"
       ? {
           alive: aliveCount,
           dead: deadCount,
-          waiting: playerCount,
+          participants: participants.length,
+          spectators: spectatorCount,
         }
       : {
-          waiting: playerCount,
+          waiting: waitingCount,
           language: "한국어",
         };
 
@@ -42,9 +45,16 @@ const RoomInfo = ({ mode }: RoomInfoProps) => {
     <section className="w-[220px] flex-shrink-0 border-4 border-black bg-surface-main px-3 py-3 shadow-[8px_8px_0_#000] ">
       <h3 className="text-sm font-semibold text-text mb-3">방 정보</h3>
 
-      <div className="h-[7rem] flex flex-col justify-center border-4 border-black bg-surface-sub px-4 py-4 space-y-2 shadow-[inset_-4px_-4px_0_rgba(255,255,255,0.5),inset_4px_4px_0_rgba(0,0,0,0.1)]">
+      <div className="min-h-[7rem] flex flex-col justify-center border-4 border-black bg-surface-sub px-4 py-4 space-y-2 shadow-[inset_-4px_-4px_0_rgba(255,255,255,0.5),inset_4px_4px_0_rgba(0,0,0,0.1)]">
         {["game", "spectate"].includes(mode) && (
           <>
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-medium text-text/70">참가자</span>
+              <span className="text-sm font-normal text-point-mint">
+                {(displayStats as GameStats).participants}
+              </span>
+            </div>
+
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium text-text/70">생존자</span>
               <span className="text-sm font-normal text-point-mint">
@@ -60,9 +70,9 @@ const RoomInfo = ({ mode }: RoomInfoProps) => {
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-xs font-medium text-text/70">대기자</span>
+              <span className="text-xs font-medium text-text/70">관전자</span>
               <span className="text-sm font-normal text-point-yellow">
-                {(displayStats as GameStats).waiting}
+                {(displayStats as GameStats).spectators}
               </span>
             </div>
           </>

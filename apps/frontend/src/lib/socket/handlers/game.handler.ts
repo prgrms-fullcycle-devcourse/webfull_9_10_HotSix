@@ -51,6 +51,12 @@ export const registerGameHandlers = (socket: Socket) => {
     }
 
     store.setPhase(stateData.phase);
+    useGameStore.getState().setGameCounts({
+      ...(stateData.minPlayers !== undefined ? { minPlayers: stateData.minPlayers } : {}),
+      ...(stateData.spectatorCount !== undefined
+        ? { spectatorCount: stateData.spectatorCount }
+        : {}),
+    });
 
     const participants = stateData.participants ?? [];
     console.log("[battle:state participants]", {
@@ -63,10 +69,16 @@ export const registerGameHandlers = (socket: Socket) => {
     const playerCount =
       stateData.playerCount ?? stateData.waitingPlayerCount ?? participants.length;
 
-    store.setWaitingState({
-      playerCount,
-      remainingSeconds: stateData.remainingSeconds ?? stateData.countdown ?? 0,
-    });
+    if (stateData.phase === "waiting" || stateData.phase === "countdown") {
+      store.setWaitingState({
+        playerCount,
+        remainingSeconds: stateData.remainingSeconds ?? stateData.countdown ?? 0,
+        ...(stateData.minPlayers !== undefined ? { minPlayers: stateData.minPlayers } : {}),
+        ...(stateData.spectatorCount !== undefined
+          ? { spectatorCount: stateData.spectatorCount }
+          : {}),
+      });
+    }
 
     participants.map(mapParticipant).forEach((p) => {
       useGameStore.getState().updateParticipant(p);
@@ -92,18 +104,22 @@ export const registerGameHandlers = (socket: Socket) => {
     store.setWaitingState({
       playerCount,
       remainingSeconds,
+      ...(data?.minPlayers !== undefined ? { minPlayers: data.minPlayers } : {}),
+      ...(data?.spectatorCount !== undefined ? { spectatorCount: data.spectatorCount } : {}),
+      ...(data?.waitingPlayers !== undefined ? { waitingPlayers: data.waitingPlayers } : {}),
     });
   });
 
   socket.on("battle:started", (data: BattleStartedPayload) => {
-    useGameStore.getState().setGameId(data.gameId);
     const promptContent = data.prompt?.content ?? "";
 
-    if (promptContent) {
-      store.setPrompt(promptContent);
-    }
-
-    store.setPhase("in_progress");
+    useGameStore.getState().startGame({
+      gameId: data.gameId,
+      prompt: promptContent,
+      ...(data.participants !== undefined
+        ? { participants: data.participants.map(mapParticipant) }
+        : {}),
+    });
   });
 
   socket.on("battle:progress", (data: BattleProgressPayload) => {
@@ -125,6 +141,6 @@ export const registerGameHandlers = (socket: Socket) => {
   });
 
   socket.on("battle:finished", () => {
-    store.setPhase("finished");
+    useGameStore.getState().finishGame();
   });
 };

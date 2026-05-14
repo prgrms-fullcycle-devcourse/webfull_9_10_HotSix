@@ -29,6 +29,12 @@ export interface BattleWaitingPayload {
   minPlayers: number;
   playerCount: number;
   spectatorCount: number;
+  waitingPlayers?: {
+    avatarUrl?: string;
+    joinedAt?: string;
+    nickname: string;
+    userId: string;
+  }[];
 
   prompt: {
     id: number;
@@ -50,6 +56,19 @@ export interface BattleStartedPayload {
   };
 
   gameStartedAt: string;
+
+  participants?: {
+    acceptedLength?: number;
+    accuracy?: number;
+    life?: number;
+    nickname?: string;
+    participantId: string;
+    progressPercent?: number;
+    socketId?: string;
+    status: Status;
+    typedLength?: number;
+    wpm?: number;
+  }[];
 }
 
 export interface BattleProgressPayload {
