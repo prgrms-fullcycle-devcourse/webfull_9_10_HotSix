@@ -1,24 +1,27 @@
 import { create } from "zustand";
 import type { BattlePhase } from "@/lib/socket/socket.types";
 
-const MIN_PLAYERS = 2;
+const MIN_PLAYERS = 4;
 
 type GamePhase = BattlePhase | "countdown";
 
 export interface Participant {
   participantId: string;
-  nickname: string;
+  socketId?: string;
 
+  nickname: string;
   progressPercent: number;
   typedLength: number;
   wpm: number;
   accuracy: number;
   life: number;
-
+  rank?: number;
   status?: "playing" | "dead";
 }
 
 interface GameState {
+  gameId: string | null;
+
   phase: GamePhase;
 
   prompt: string;
@@ -30,6 +33,8 @@ interface GameState {
 
   previousWinner: string;
   previousGameDuration: string;
+
+  setGameId: (gameId: string | null) => void;
 
   setPrompt: (prompt: string) => void;
 
@@ -51,6 +56,8 @@ interface GameState {
 }
 
 export const useGameStore = create<GameState>((set) => ({
+  gameId: null,
+
   phase: "waiting",
 
   prompt: "",
@@ -62,6 +69,8 @@ export const useGameStore = create<GameState>((set) => ({
 
   previousWinner: "-",
   previousGameDuration: "00:00",
+
+  setGameId: (gameId) => set({ gameId }),
 
   setPrompt: (prompt) => set({ prompt }),
 
@@ -114,6 +123,7 @@ export const useGameStore = create<GameState>((set) => ({
           accuracy: data.accuracy ?? 100,
           life: data.life ?? 3,
           status: data.status ?? "playing",
+          ...(data.socketId ? { socketId: data.socketId } : {}),
         };
 
         return {
