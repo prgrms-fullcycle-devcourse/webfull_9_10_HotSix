@@ -11,7 +11,7 @@ const sizeMap = {
   lg: "w-6 h-6",
 };
 
-const HeartIcons = ({ life, size = "sm" }: HeartIconsProps) => {
+const HeartIcons = ({ life = 3, size = "sm" }: HeartIconsProps) => {
   const hearts = Array.from({ length: life }, (_, i) => ({
     id: i, // key용
   }));

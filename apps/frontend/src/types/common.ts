@@ -1,1 +1,1 @@
-export type PageMode = "game" | "watch" | "waiting";
+export type PageMode = "game" | "spectate" | "waiting";

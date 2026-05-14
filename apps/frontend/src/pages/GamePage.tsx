@@ -47,7 +47,7 @@ const GamePage = () => {
 
   const progress = Math.min(100, Math.max(0, myParticipant?.progressPercent ?? localProgress));
 
-  const typingCount = myParticipant?.typedLength ?? localTypingCount;
+  const typingCount = myParticipant?.acceptedLength ?? localTypingCount;
 
   const accuracy = Math.min(
     100,

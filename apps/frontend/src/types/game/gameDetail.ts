@@ -1,36 +1,47 @@
+export type Status = "playing" | "finished" | "eliminated" | "spectating";
+
 export interface GameDetailResponse {
   game: {
-    id: number;
+    id: string;
     phase: "waiting" | "in_progress" | "finished";
+    startedAt: string;
     minPlayers: number;
-    totalPlayers: number;
+    playerCount: number;
     spectatorCount: number;
-    winnerUserId: string | null;
+
+    waitingStartedAt: string;
+    waitingEndsAt: string;
+
+    gameStartedAt: string;
+    gameEndedAt: string | null;
+
+    createdAt: string;
+    updatedAt: string;
   };
 
   prompt: {
     id: number;
-    text: string;
-    totalLength: number;
+    slug: string;
+    title: string;
+    content: string;
+    contentLength: number;
+    Language: string;
   };
 
   participants: {
     userId: string;
     nickname: string;
     avatarUrl: string;
-
+    status: Status;
     role: "player" | "spectator";
-
-    status: "waiting" | "alive" | "eliminated" | "finished" | "spectating" | "disconnected";
-
+    joinedAt: string;
     progressPercent: number;
-    typedLength: number;
-
     rank: number;
     wpm: number;
-    accuracy: number;
-
     life: number;
+    accuracy: number;
+    isEliminated: boolean;
+    acceptedLength: number;
   }[];
 
   remainingSeconds?: number;

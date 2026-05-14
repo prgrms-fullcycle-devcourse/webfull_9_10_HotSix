@@ -144,10 +144,10 @@ const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
   type TabType = "players" | "waiting";
 
   const [currentTab, setCurrentTab] = useState<TabType>(
-    mode === "game" || mode === "watch" ? "players" : "waiting",
+    mode === "game" || mode === "spectate" ? "players" : "waiting",
   );
 
-  const isWatchMode = mode === "watch";
+  const isWatchMode = mode === "spectate";
   const isWaitingMode = mode === "waiting";
 
   return (

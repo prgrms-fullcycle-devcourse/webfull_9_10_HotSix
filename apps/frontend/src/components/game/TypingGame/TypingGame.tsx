@@ -136,14 +136,6 @@ const TypingGame = ({
     const newValue = e.target.value;
 
     if (newValue.includes("\n")) {
-      console.log("[Enter detected]", {
-        raw: newValue,
-        json: JSON.stringify(newValue),
-        length: newValue.length,
-        lastChar: newValue.at(-1),
-        charCode: newValue.at(-1)?.charCodeAt(0),
-      });
-
       moveNextLine();
 
       return;

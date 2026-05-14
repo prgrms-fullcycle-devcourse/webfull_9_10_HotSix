@@ -8,7 +8,7 @@ import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
 import { useGameStore } from "@/stores/useGameStore";
 
-const MIN_PLAYERS = 1;
+const MIN_PLAYERS = 4;
 
 const GameLobbyPage = () => {
   const navigate = useNavigate();
@@ -16,21 +16,16 @@ const GameLobbyPage = () => {
   useGameData();
 
   const phase = useGameStore((state) => state.phase);
-  const participants = useGameStore((state) => state.participants);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
   const countdown = useGameStore((state) => state.countdown);
   const previousWinner = useGameStore((state) => state.previousWinner);
   const previousGameDuration = useGameStore((state) => state.previousGameDuration);
 
-  const playerCount = Math.max(waitingPlayerCount, participants.length);
+  const playerCount = waitingPlayerCount;
   const winnerText = previousWinner || "-";
   const durationText = previousGameDuration || "00:00";
 
   const isCountdown = phase === "waiting" && playerCount >= MIN_PLAYERS;
-  console.log("phase:", phase);
-  console.log("playerCount:", playerCount);
-  console.log("countdown:", countdown);
-
   useEffect(() => {
     if (phase === "in_progress") {
       navigate(PATH.GAME);

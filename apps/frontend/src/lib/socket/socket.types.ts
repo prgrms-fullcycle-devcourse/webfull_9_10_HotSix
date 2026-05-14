@@ -1,12 +1,6 @@
-export type BattlePhase = "waiting" | "in_progress" | "finished";
+import type { Status } from "@/types/game/gameDetail";
 
-// export interface BattleWaitingPayload {
-//   gameId: string;
-//   phase: BattlePhase;
-//   remainingSeconds: number;
-//   playerCount: number;
-//   spectatorCount: number;
-// }
+export type BattlePhase = "waiting" | "in_progress" | "finished";
 
 export interface BattleStatePayload {
   gameId: string;
@@ -65,7 +59,7 @@ export interface BattleProgressPayload {
     participantId: string;
     socketId: string;
     role: "player" | "spectator";
-    status: "playing" | "dead";
+    status: Status;
 
     acceptedLength: number;
     progressPercent: number;
