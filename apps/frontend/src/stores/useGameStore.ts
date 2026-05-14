@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { BattlePhase } from "@/lib/socket/socket.types";
 
-const MIN_PLAYERS = 1;
+const MIN_PLAYERS = 4;
 
 type GamePhase = BattlePhase | "countdown";
 

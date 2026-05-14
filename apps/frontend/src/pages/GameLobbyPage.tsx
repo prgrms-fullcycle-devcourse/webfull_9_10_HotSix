@@ -8,7 +8,7 @@ import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
 import { useGameStore } from "@/stores/useGameStore";
 
-const MIN_PLAYERS = 1;
+const MIN_PLAYERS = 4;
 
 const GameLobbyPage = () => {
   const navigate = useNavigate();
@@ -27,10 +27,6 @@ const GameLobbyPage = () => {
   const durationText = previousGameDuration || "00:00";
 
   const isCountdown = phase === "waiting" && playerCount >= MIN_PLAYERS;
-  console.log("phase:", phase);
-  console.log("playerCount:", playerCount);
-  console.log("countdown:", countdown);
-
   useEffect(() => {
     if (phase === "in_progress") {
       navigate(PATH.GAME);
