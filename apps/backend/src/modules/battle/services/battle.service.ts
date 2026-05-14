@@ -543,7 +543,7 @@ export class BattleService {
       nextWaitingStartsAt: null,
       phase: "waiting" as const,
       playerCount: 0,
-      minPlayers: 4, // default = 4
+      minPlayers: 1, // default = 4
       prompt,
       rankings: [],
       spectatorCount: 0,
