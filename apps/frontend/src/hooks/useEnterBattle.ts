@@ -26,6 +26,10 @@ export const useEnterBattle = () => {
 
       if (currentSocket?.connected) {
         const game = await getGameDetail();
+        // console.log("[useEnterBattle] game detail", {
+        //   phase: game.game.phase,
+        //   game,
+        // });
         const nextPath = getNextPath(game.game.phase);
 
         navigate(nextPath, {
