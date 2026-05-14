@@ -9,6 +9,10 @@ import { useSocketStore } from "@/stores/useSocketStore";
 
 let isEnteringBattle = false;
 
+const getNextPath = (phase: string) => {
+  return phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY;
+};
+
 export const useEnterBattle = () => {
   const navigate = useNavigate();
 
@@ -22,8 +26,9 @@ export const useEnterBattle = () => {
 
       if (currentSocket?.connected) {
         const game = await getGameDetail();
+        const nextPath = getNextPath(game.game.phase);
 
-        navigate(game.game.phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY, {
+        navigate(nextPath, {
           replace: true,
         });
 
@@ -33,19 +38,16 @@ export const useEnterBattle = () => {
       const { socketAuthToken } = await joinMatch();
 
       const socket = createBattleSocket(socketAuthToken);
-      console.log("소켓 생성됨", socket);
 
       useSocketStore.getState().connect(socket);
-      console.log("소켓 store 저장 완료");
 
       registerConnectionHandlers(socket);
       registerGameHandlers(socket);
 
-      console.log("소켓 핸들러 등록 완료");
-
       const game = await getGameDetail();
+      const nextPath = getNextPath(game.game.phase);
 
-      navigate(game.game.phase === "in_progress" ? PATH.SPECTATE : PATH.GAME_LOBBY, {
+      navigate(nextPath, {
         replace: true,
       });
     } finally {

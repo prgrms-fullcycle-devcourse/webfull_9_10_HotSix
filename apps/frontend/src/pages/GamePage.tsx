@@ -1,6 +1,5 @@
-import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import SideBar from "@/components/common/Sidebar/SideBar";
 import { GameProgress } from "@/components/game/GameProgress";
 import { RaceTrack } from "@/components/game/RaceTrack";
@@ -32,6 +31,7 @@ const GamePage = () => {
 
   const prompt = useGameStore((state) => state.prompt);
   const participants = useGameStore((state) => state.participants);
+  const gameId = useGameStore((state) => state.gameId);
 
   const [gameResult, setGameResult] = useState<GameResult>("playing");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -39,15 +39,18 @@ const GamePage = () => {
   const [localAccuracy, setLocalAccuracy] = useState(0);
   const [localProgress, setLocalProgress] = useState(0);
 
-  const myParticipant = participants[0];
-  console.log("participants", participants);
-  console.log("myParticipant", myParticipant);
-  console.log("participant keys", Object.keys(myParticipant ?? {}));
-  console.log("socket id", socket?.id);
+  const myParticipant =
+    participants.find((participant) => participant.socketId === socket?.id) ?? participants[0];
 
-  const progress = myParticipant?.progressPercent ?? localProgress;
+  const progress = Math.min(100, Math.max(0, myParticipant?.progressPercent ?? localProgress));
+
   const typingCount = myParticipant?.acceptedLength ?? localTypingCount;
-  const accuracy = typingCount === 0 ? 0 : (myParticipant?.accuracy ?? localAccuracy);
+
+  const accuracy = Math.min(
+    100,
+    Math.max(0, typingCount === 0 ? 0 : (myParticipant?.accuracy ?? localAccuracy)),
+  );
+
   const life = myParticipant?.life ?? 3;
 
   useEffect(() => {
@@ -106,10 +109,14 @@ const GamePage = () => {
     completedTypingCount = 0,
     completedCorrectCount = 0,
   ) => {
+    if (!gameId) {
+      console.warn("[battle:input skipped] gameId가 없습니다.");
+      return;
+    }
     socket?.emit(BATTLE_SOCKET_EVENTS.INPUT, {
-      inputText,
+      gameId,
+      typedText: inputText,
       cursorPosition: inputText.length,
-      typedChars: completedTypingCount + inputText.length,
     });
 
     const totalLength = getPromptLength(prompt);
@@ -155,14 +162,6 @@ const GamePage = () => {
 
   return (
     <div className="bg-surface-main relative flex h-dvh w-full overflow-hidden">
-      <Link
-        to={PATH.SETTING}
-        aria-label="설정 페이지로 이동"
-        className="absolute right-[72px] top-[30px] z-50 flex h-[47px] w-[47px] items-center justify-center"
-      >
-        <Settings size={47} strokeWidth={2.5} className="text-text" />
-      </Link>
-
       <div className="h-full w-full p-6">
         <div className="flex h-full w-full gap-8 overflow-hidden">
           <div className="w-[260px] shrink-0">

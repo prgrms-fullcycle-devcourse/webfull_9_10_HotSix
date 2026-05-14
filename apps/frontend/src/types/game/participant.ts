@@ -1,5 +1,6 @@
 export interface Participant {
   participantId: string;
+  socketId?: string;
   nickname: string;
   progressPercent: number;
   acceptedLength: number;
