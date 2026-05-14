@@ -68,7 +68,7 @@ export class GameStateService {
         id: gameData?.gameId ?? 0,
         phase: gameData?.phase ?? "wait",
         startedAt: gameData?.gameStartedAt ?? "",
-        minPlayers: gameData?.minPlayers ?? 1,
+        minPlayers: gameData?.minPlayers ?? 4,
         playerCount: players.length,
         spectatorCount: spectators.length,
         waitingStartedAt: gameData?.waitingStartedAt ?? "",
