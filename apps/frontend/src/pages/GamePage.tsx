@@ -46,7 +46,7 @@ const GamePage = () => {
   console.log("socket id", socket?.id);
 
   const progress = myParticipant?.progressPercent ?? localProgress;
-  const typingCount = myParticipant?.typedLength ?? localTypingCount;
+  const typingCount = myParticipant?.acceptedLength ?? localTypingCount;
   const accuracy = typingCount === 0 ? 0 : (myParticipant?.accuracy ?? localAccuracy);
   const life = myParticipant?.life ?? 3;
 

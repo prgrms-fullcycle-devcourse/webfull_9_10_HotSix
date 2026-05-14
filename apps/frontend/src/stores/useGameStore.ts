@@ -1,22 +1,10 @@
 import { create } from "zustand";
 import type { BattlePhase } from "@/lib/socket/socket.types";
+import type { Participant } from "@/types/game/participant";
 
 const MIN_PLAYERS = 2;
 
 type GamePhase = BattlePhase | "countdown";
-
-export interface Participant {
-  participantId: string;
-  nickname: string;
-
-  progressPercent: number;
-  typedLength: number;
-  wpm: number;
-  accuracy: number;
-  life: number;
-
-  status?: "playing" | "dead";
-}
 
 interface GameState {
   phase: GamePhase;
@@ -109,7 +97,7 @@ export const useGameStore = create<GameState>((set) => ({
           participantId: data.participantId,
           nickname: data.nickname ?? "",
           progressPercent: data.progressPercent ?? 0,
-          typedLength: data.typedLength ?? 0,
+          acceptedLength: data.acceptedLength ?? 0,
           wpm: data.wpm ?? 0,
           accuracy: data.accuracy ?? 100,
           life: data.life ?? 3,
@@ -140,7 +128,7 @@ export const useGameStore = create<GameState>((set) => ({
           ? {
               ...participant,
               life: 0,
-              status: "dead",
+              status: "eliminated",
             }
           : participant,
       ),

@@ -1,62 +1,14 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Socket } from "socket.io-client";
-
 import settingIcon from "@/assets/icons/settingIcon.svg";
 import BgImage from "@/assets/images/racing_night.svg";
-
 import SideBar from "@/components/common/Sidebar/SideBar";
 import ParticipantCard from "@/components/spectator/ParticipantCard";
-
 import { PATH } from "@/constants/route";
 import { useGameData } from "@/hooks/useGame";
-
-import { createBattleSocket } from "@/lib/socket/battleSocket";
-import type { BattleProgressPayload } from "@/lib/socket/socket.types";
-
-import { useAuthStore } from "@/stores/useAuthStore";
 import { useGameStore } from "@/stores/useGameStore";
 
 const SpectatePage = () => {
   const navigate = useNavigate();
-  const accessToken = useAuthStore((s) => s.accessToken);
-
-  // socket
-  useEffect(() => {
-    if (!accessToken) return;
-
-    let socket: Socket | null = null;
-
-    const connectSocket = async () => {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-
-      // 매치 참가
-      const joinRes = await fetch(`${apiBaseUrl}/v1/match/join`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      const joinData = await joinRes.json();
-      const socketAuthToken = joinData.socketAuthToken;
-
-      // 소켓 연결
-      socket = createBattleSocket(socketAuthToken);
-
-      socket.on("battle:progress", (data: BattleProgressPayload) => {
-        const participant = data.participant;
-
-        useGameStore.getState().updateParticipant(participant);
-      });
-    };
-
-    connectSocket();
-
-    return () => {
-      if (socket) socket.disconnect();
-    };
-  }, [accessToken]);
 
   useGameData();
 
@@ -68,7 +20,7 @@ const SpectatePage = () => {
       className="relative flex h-screen overflow-hidden bg-cover bg-center"
       style={{ backgroundImage: `url(${BgImage})` }}
     >
-      <SideBar mode="watch" />
+      <SideBar mode="spectate" />
 
       {/* 참가자 카드 영역 */}
       <div className="relative flex-1 overflow-hidden px-10 pt-6 pb-6">
@@ -108,7 +60,7 @@ const SpectatePage = () => {
                 key={p.participantId}
                 nickname={p.nickname}
                 progress={p.progressPercent ?? 0}
-                typedLength={p.typedLength ?? 0}
+                acceptedLength={p.acceptedLength ?? 0}
                 wpm={p.wpm ?? 0}
                 promptText={prompt ?? ""}
                 life={p.life ?? 3}

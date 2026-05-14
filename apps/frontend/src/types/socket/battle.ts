@@ -13,7 +13,7 @@ export type BattleParticipant = {
 
   life?: number;
 
-  status?: string;
+  status: "playing" | "finished" | "eliminated" | "spectating";
 };
 
 export type BattleWaitingPayload = {
