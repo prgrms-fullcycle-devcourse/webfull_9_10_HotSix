@@ -177,14 +177,14 @@ const GamePage = () => {
   }
 
   return (
-    <div className="bg-surface-main relative flex h-dvh w-full overflow-hidden">
-      <div className="h-full w-full p-6">
-        <div className="flex h-full w-full gap-8 overflow-hidden">
+    <div className="relative flex h-dvh w-full overflow-hidden">
+      <div className="h-full w-full">
+        <div className="flex h-full w-full gap-3 overflow-hidden">
           <div className="w-[260px] shrink-0">
             <SideBar mode="game" />
           </div>
 
-          <div className="flex min-w-0 flex-1 justify-center overflow-hidden">
+          <div className="flex pr-8 min-w-0 flex-1 justify-center overflow-hidden">
             <div className="w-full max-w-[1180px]">
               <div className="flex w-full flex-col items-center gap-6">
                 <RaceTrack progress={progress} carIndex={0} />

@@ -11,7 +11,7 @@ const SideBar = ({ mode }: SidebarProps) => {
   return (
     <aside
       className="
-            flex flex-col gap-4
+            flex flex-col gap-6
             w-full min-w-[220px] max-w-[260px]
             h-full overflow-y-auto
             overflow-x-hidden
