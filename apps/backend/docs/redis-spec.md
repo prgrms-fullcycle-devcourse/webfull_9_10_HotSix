@@ -42,7 +42,7 @@
     "language": "ko"
   },
   "phase": "waiting",
-  "minPlayers": 4,
+  "minPlayers": 1,
   "playerCount": 2,
   "spectatorCount": 0,
   "waitingStartedAt": "2026-05-04T12:00:00.000Z",
@@ -90,4 +90,4 @@
 1. `battle:current-game-id` 와 `battle:game:{gameId}:state` 는 항상 같이 사용됩니다.
 2. 대기 타이머는 `battle:timer-lock` 을 먼저 획득한 인스턴스만 실행합니다.
 3. 게임 시작 조건은 Redis 상태의 `playerCount >= minPlayers` 입니다.
-4. 대기 시간이 끝났는데 인원이 4명 미만이면 같은 `gameId` 상태에서 `waitingStartedAt`, `waitingEndsAt`, `updatedAt` 만 갱신해 15분 대기를 다시 시작합니다.
+4. 대기 시간이 끝났는데 인원이 1명 미만이면 같은 `gameId` 상태에서 `waitingStartedAt`, `waitingEndsAt`, `updatedAt` 만 갱신해 15분 대기를 다시 시작합니다.

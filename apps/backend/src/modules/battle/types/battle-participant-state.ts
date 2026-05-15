@@ -5,12 +5,15 @@ export type BattleParticipantStatus = "playing" | "finished" | "eliminated" | "s
 export type BattleParticipantState = {
   acceptedLength: number;
   accuracy: number;
+  avatarUrl?: string;
   eliminatedAt?: null | string;
   finishedAt?: null | string;
   gameId: string;
+  joinedAt?: string;
   lastInputAt: null | string;
   lastPenaltyIndex: null | number;
   life: number;
+  nickname?: string;
   wpm: number;
   participantId: string;
   progressPercent: number;

@@ -1,18 +1,14 @@
-import { useNavigate } from "react-router-dom";
-
 type Props = {
   onBack?: () => void;
 };
 
 export default function Header({ onBack }: Props) {
-  const navigate = useNavigate();
-
   const handleBack = () => {
     if (onBack) {
       onBack();
       return;
     }
-    navigate(-1);
+    window.history.back();
   };
 
   return (

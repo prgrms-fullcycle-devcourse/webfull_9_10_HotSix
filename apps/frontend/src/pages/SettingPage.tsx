@@ -7,7 +7,11 @@ import ThemeToggle from "@/components/setting/ThemeToggle";
 import { useUserDashboard, useUserInfo } from "@/hooks/useAuth";
 import { useThemeStore, useTypingFontSizeClass } from "@/stores/useThemeStore";
 
-export default function SettingPage() {
+type SettingPageProps = {
+  onBack: () => void;
+};
+
+export default function SettingPage({ onBack }: SettingPageProps) {
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
   const fontSize = useThemeStore((state) => state.typingFontSize);
@@ -22,7 +26,7 @@ export default function SettingPage() {
 
   return (
     <div className="min-h-screen pt-24 px-4">
-      <Header />
+      <Header onBack={onBack} />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
         {/* 상단: 프로필 & 통계 영역 */}

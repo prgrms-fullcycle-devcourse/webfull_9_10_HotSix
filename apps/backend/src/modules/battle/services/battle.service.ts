@@ -15,14 +15,19 @@ import type {
   BattleRankingEntry,
 } from "../types/battle-game-result";
 import type { BattleParticipantState } from "../types/battle-participant-state";
-import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
+import type {
+  ConnectionRole,
+  CurrentGameParticipantSnapshot,
+  CurrentGameState,
+} from "../types/current-game-state";
 
 // const WAITING_DURATION_SECONDS = 15 * 60;
 const WAITING_DURATION_SECONDS = 30;
 const GAME_DURATION_SECONDS = 15 * 60;
-const FINISHED_DURATION_SECONDS = 30;
+const FINISHED_DURATION_SECONDS = 15;
 const FINISH_LOCK_TTL_SECONDS = FINISHED_DURATION_SECONDS + 10;
 const DEFAULT_PLAYER_LIFE = 3;
+const MIN_PLAYERS_TO_START = 1;
 
 type BattleInputValidationInput = {
   assignedRole?: ConnectionRole | undefined;
@@ -91,7 +96,7 @@ export class BattleService {
     const currentGameState = await this.battleStateRepository.getCurrentGameState();
 
     if (currentGameState) {
-      return currentGameState;
+      return this.normalizeCurrentGameState(currentGameState);
     }
 
     const waitingGameState = await this.createWaitingGameState(new Date());
@@ -148,12 +153,8 @@ export class BattleService {
   }
 
   buildStatePayload(currentGameState: CurrentGameState) {
-    console.log("[STATE PAYLOAD]", {
-      minPlayers: currentGameState.minPlayers,
-      playerCount: currentGameState.playerCount,
-      phase: currentGameState.phase,
-      waitingEndsAt: currentGameState.waitingEndsAt,
-    });
+    const participants = currentGameState.participants ?? [];
+
     return {
       gameId: currentGameState.gameId,
       prompt:
@@ -167,6 +168,8 @@ export class BattleService {
       phase: currentGameState.phase,
       minPlayers: currentGameState.minPlayers,
       playerCount: currentGameState.playerCount,
+      participantNames: this.getParticipantNames(participants),
+      participants,
       spectatorCount: currentGameState.spectatorCount,
       waitingEndsAt: currentGameState.waitingEndsAt,
       gameStartedAt: currentGameState.gameStartedAt,
@@ -377,6 +380,7 @@ export class BattleService {
       hasTenSecondNoticeSent: false,
       nextWaitingStartsAt: null,
       rankings: [],
+      participants: [],
       updatedAt: startedAt,
       waitingEndsAt: null,
       waitingStartedAt: null,
@@ -384,9 +388,18 @@ export class BattleService {
     };
 
     await this.battleStateRepository.saveCurrentGameState(startedGameState);
-    await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
+    const participants = await this.battleStateRepository.resetPlayerStatus(
+      currentGameState.gameId,
+    );
+    const startedGameStateWithParticipants = {
+      ...startedGameState,
+      participants: this.toParticipantSnapshots(participants),
+      updatedAt: new Date().toISOString(),
+    };
 
-    return startedGameState;
+    await this.battleStateRepository.saveCurrentGameState(startedGameStateWithParticipants);
+
+    return startedGameStateWithParticipants;
   }
 
   async restartWaitingCountdown(currentGameState: CurrentGameState) {
@@ -400,6 +413,7 @@ export class BattleService {
       hasTenSecondNoticeSent: false,
       nextWaitingStartsAt: null,
       rankings: [],
+      participants: [],
       updatedAt: waitingStartedAt,
       waitingEndsAt,
       waitingStartedAt,
@@ -543,7 +557,7 @@ export class BattleService {
       nextWaitingStartsAt: null,
       phase: "waiting" as const,
       playerCount: 0,
-      minPlayers: 4, // default = 4
+      minPlayers: MIN_PLAYERS_TO_START,
       prompt,
       rankings: [],
       spectatorCount: 0,
@@ -554,6 +568,22 @@ export class BattleService {
     };
 
     return gameState;
+  }
+
+  private async normalizeCurrentGameState(currentGameState: CurrentGameState) {
+    if (currentGameState.minPlayers === MIN_PLAYERS_TO_START) {
+      return currentGameState;
+    }
+
+    const normalizedGameState = {
+      ...currentGameState,
+      minPlayers: MIN_PLAYERS_TO_START,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.battleStateRepository.saveCurrentGameState(normalizedGameState);
+
+    return normalizedGameState;
   }
 
   private applyInputResult(input: {
@@ -569,9 +599,7 @@ export class BattleService {
     socketId: string;
   }) {
     const now = new Date().toISOString();
-    const shouldApplyPenalty =
-      input.comparison.typoIndex !== null &&
-      input.comparison.typoIndex !== input.participantState.lastPenaltyIndex;
+    const shouldApplyPenalty = input.comparison.typoIndex !== null;
     const life = shouldApplyPenalty
       ? Math.max(0, input.participantState.life - 1)
       : input.participantState.life;
@@ -792,6 +820,35 @@ export class BattleService {
     }
 
     return "playing";
+  }
+
+  private toParticipantSnapshots(
+    participants: BattleParticipantState[],
+  ): CurrentGameParticipantSnapshot[] {
+    return participants.map((participant) => ({
+      acceptedLength: participant.acceptedLength,
+      accuracy: participant.accuracy,
+      ...(participant.avatarUrl ? { avatarUrl: participant.avatarUrl } : {}),
+      eliminatedAt: participant.eliminatedAt ?? null,
+      finishedAt: participant.finishedAt ?? null,
+      ...(participant.joinedAt ? { joinedAt: participant.joinedAt } : {}),
+      lastInputAt: participant.lastInputAt,
+      life: participant.life,
+      ...(participant.nickname ? { nickname: participant.nickname } : {}),
+      participantId: participant.participantId,
+      progressPercent: participant.progressPercent,
+      role: participant.role,
+      socketId: participant.socketId,
+      status: participant.status,
+      typoCount: participant.typoCount,
+      wpm: participant.wpm,
+    }));
+  }
+
+  private getParticipantNames(participants: CurrentGameParticipantSnapshot[]) {
+    return participants
+      .map((participant) => participant.nickname)
+      .filter((nickname): nickname is string => Boolean(nickname));
   }
 
   private compareByFinishedAtAsc(left: BattleParticipantState, right: BattleParticipantState) {

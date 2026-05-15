@@ -2,6 +2,26 @@ import type { Status } from "@/types/game/gameDetail";
 
 export type BattlePhase = "waiting" | "in_progress" | "finished";
 
+export interface BattleSocketParticipant {
+  acceptedLength?: number;
+  accuracy?: number;
+  avatarUrl?: string;
+  eliminatedAt?: string | null;
+  finishedAt?: string | null;
+  joinedAt?: string;
+  lastInputAt?: string | null;
+  life?: number;
+  nickname?: string;
+  participantId: string;
+  progressPercent?: number;
+  role?: "player" | "spectator";
+  socketId?: string;
+  status: Status;
+  typedLength?: number;
+  typoCount?: number;
+  wpm?: number;
+}
+
 export interface BattleStatePayload {
   gameId: string;
   phase: BattlePhase;
@@ -15,10 +35,13 @@ export interface BattleStatePayload {
 
   minPlayers: number;
   playerCount: number;
+  participantNames?: string[];
+  participants?: BattleSocketParticipant[];
   spectatorCount: number;
 
   gameStartedAt: string | null;
   gameEndedAt: string | null;
+  nextWaitingStartsAt?: string | null;
 }
 
 export interface BattleWaitingPayload {
@@ -57,24 +80,14 @@ export interface BattleStartedPayload {
 
   gameStartedAt: string;
 
-  participants?: {
-    acceptedLength?: number;
-    accuracy?: number;
-    life?: number;
-    nickname?: string;
-    participantId: string;
-    progressPercent?: number;
-    socketId?: string;
-    status: Status;
-    typedLength?: number;
-    wpm?: number;
-  }[];
+  participantNames?: string[];
+  participants?: BattleSocketParticipant[];
 }
 
 export interface BattleProgressPayload {
   gameId: string;
 
-  participant: {
+  participant: BattleSocketParticipant & {
     participantId: string;
     socketId: string;
     role: "player" | "spectator";
@@ -95,4 +108,13 @@ export interface BattleEliminatedPayload {
   participantId: string;
   socketId: string;
   reason: "typo" | "timeout" | "disconnect";
+}
+
+export interface BattleFinishedPayload {
+  finishedAt: string | null;
+  gameId: string;
+  nextWaitingStartsAt?: string | null;
+  rankings?: unknown[];
+  reason?: string | null;
+  winnerParticipantId?: string | null;
 }

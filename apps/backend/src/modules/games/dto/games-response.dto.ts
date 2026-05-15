@@ -10,7 +10,7 @@ export class CurrentGameInfoDto {
   @ApiProperty({ example: "2026-05-13T04:00:00.000Z" })
   startedAt!: string;
 
-  @ApiProperty({ example: 4 })
+  @ApiProperty({ example: 1 })
   minPlayers!: number;
 
   @ApiProperty({ example: 3 })

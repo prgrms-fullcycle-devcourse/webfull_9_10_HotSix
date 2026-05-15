@@ -145,7 +145,7 @@ export class BattleStateRepository {
   }
 
   async resetPlayerStatus(gameId: string) {
-    if (!gameId) return;
+    if (!gameId) return [];
 
     await this.redisService.instance.del(`battle:game:${gameId}:scoreboard`);
 
@@ -153,26 +153,32 @@ export class BattleStateRepository {
       `battle:game:${gameId}:active-connection:*`,
     );
 
-    await Promise.all(
-      conenctionKey.map(async (key) => {
+    const participants = await Promise.all(
+      conenctionKey.map(async (key): Promise<BattleParticipantState | null> => {
         const raw = await this.redisService.instance.get(key);
-        if (!raw) return;
+        if (!raw) return null;
 
         const connection = JSON.parse(raw) as BattleActiveConnection;
 
         if (connection.assignedRole !== "player") {
-          return;
+          return null;
         }
 
+        const profile = await this.redisService.instance.hgetall(
+          `lobby:player:${connection.participantId}`,
+        );
         const nextState: BattleParticipantState = {
           acceptedLength: 0,
           accuracy: 100,
+          ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
           eliminatedAt: null,
           finishedAt: null,
           gameId,
+          ...(profile.joinedAt ? { joinedAt: profile.joinedAt } : {}),
           lastInputAt: null,
           lastPenaltyIndex: null,
           life: 3,
+          ...(profile.nickname ? { nickname: profile.nickname } : {}),
           participantId: connection.participantId,
           progressPercent: 0,
           role: "player",
@@ -188,7 +194,13 @@ export class BattleStateRepository {
           0,
           connection.participantId,
         );
+
+        return nextState;
       }),
+    );
+
+    return participants.filter(
+      (participant): participant is BattleParticipantState => participant !== null,
     );
   }
 

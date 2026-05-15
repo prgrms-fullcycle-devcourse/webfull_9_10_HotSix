@@ -9,7 +9,7 @@ const currentGameState: CurrentGameState = {
   gameId: "battle-game-1",
   gameStartedAt: "2026-05-06T00:01:00.000Z",
   hasTenSecondNoticeSent: false,
-  minPlayers: 4,
+  minPlayers: 1,
   phase: "finished",
   playerCount: 2,
   prompt: {

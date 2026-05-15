@@ -1,17 +1,49 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { CircleX, Trophy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import SideBar from "@/components/common/Sidebar/SideBar";
 import { GameProgress } from "@/components/game/GameProgress";
 import { RaceTrack } from "@/components/game/RaceTrack";
 import TypingGame from "@/components/game/TypingGame/TypingGame";
-import { PATH } from "@/constants/route";
-import { useGameData } from "@/hooks/useGame";
 import { BATTLE_SOCKET_EVENTS } from "@/lib/socket/socketEvents";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useGameStore } from "@/stores/useGameStore";
 import { useSocketStore } from "@/stores/useSocketStore";
 
 type GameResult = "playing" | "gameOver" | "winner";
+
+type GamePageProps = {
+  onHoldGameView: () => void;
+  onMoveToSpectate: () => void;
+};
+
+const resultCopy = {
+  gameOver: {
+    Icon: CircleX,
+    label: "RESULT",
+    title: "탈락",
+    description: "잠시 후 관전 화면으로 이동합니다",
+    accentClassName: "text-point-red",
+    panelClassName: "bg-point-red/15",
+  },
+  winner: {
+    Icon: Trophy,
+    label: "WINNER",
+    title: "우승",
+    description: "대기방으로 이동합니다",
+    accentClassName: "text-point-yellow",
+    panelClassName: "bg-point-yellow/20",
+  },
+} satisfies Record<
+  Exclude<GameResult, "playing">,
+  {
+    Icon: typeof CircleX;
+    label: string;
+    title: string;
+    description: string;
+    accentClassName: string;
+    panelClassName: string;
+  }
+>;
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -24,10 +56,41 @@ const getPromptLength = (prompt: string) => {
   return prompt.replaceAll("\n", "").length;
 };
 
-const GamePage = () => {
-  useGameData();
+const ResultModal = ({ result }: { result: Exclude<GameResult, "playing"> }) => {
+  const { Icon, accentClassName, description, label, panelClassName, title } = resultCopy[result];
 
-  const navigate = useNavigate();
+  return (
+    <div className="bg-app flex h-dvh w-full items-center justify-center px-5 py-8">
+      <section className="w-full max-w-[520px] border-4 border-black bg-surface-main shadow-[10px_10px_0_#000]">
+        <div className="h-4 border-b-4 border-black bg-dash-red-white" />
+
+        <div className="px-5 py-6 sm:px-8 sm:py-8">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <span className="border-4 border-black bg-surface-sub px-3 py-1 text-xs font-bold text-text/70 shadow-[4px_4px_0_#000]">
+              {label}
+            </span>
+            <Icon className={accentClassName} aria-hidden="true" size={34} strokeWidth={3} />
+          </div>
+
+          <div
+            className={`border-4 border-black px-5 py-7 text-center shadow-[inset_-4px_-4px_0_rgba(255,255,255,0.45),inset_4px_4px_0_rgba(0,0,0,0.12)] ${panelClassName}`}
+          >
+            <h1 className={`text-5xl font-bold ${accentClassName}`}>{title}</h1>
+            <p className="mt-4 text-sm font-semibold text-text/70">{description}</p>
+          </div>
+
+          <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs font-bold text-text/50">
+            <div className="h-1 bg-black/20" />
+            <span>KEYBOARD WARRIOR</span>
+            <div className="h-1 bg-black/20" />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const GamePage = ({ onHoldGameView, onMoveToSpectate }: GamePageProps) => {
   const socket = useSocketStore((state) => state.socket);
 
   const prompt = useGameStore((state) => state.prompt);
@@ -35,6 +98,7 @@ const GamePage = () => {
   const gameId = useGameStore((state) => state.gameId);
 
   const [gameResult, setGameResult] = useState<GameResult>("playing");
+  const gameResultRef = useRef<GameResult>("playing");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [localTypingCount, setLocalTypingCount] = useState(0);
   const [localAccuracy, setLocalAccuracy] = useState(0);
@@ -69,32 +133,41 @@ const GamePage = () => {
   useEffect(() => {
     if (!socket || !myParticipant?.participantId) return;
 
-    const moveToGameLobby = () => {
+    const moveToSpectate = () => {
       window.setTimeout(() => {
-        navigate(PATH.GAME_LOBBY);
+        onMoveToSpectate();
       }, 1500);
     };
 
     const handleEliminated = (data: { participantId: string }) => {
       if (data.participantId !== myParticipant.participantId) return;
+      if (gameResultRef.current !== "playing") return;
 
+      gameResultRef.current = "gameOver";
+      onHoldGameView();
       setGameResult("gameOver");
 
       window.setTimeout(() => {
-        navigate(PATH.SPECTATE);
+        onMoveToSpectate();
       }, 1500);
     };
 
-    const handleFinished = (data?: { winnerParticipantId?: string }) => {
+    const handleFinished = (data?: { winnerParticipantId?: string | null }) => {
+      if (gameResultRef.current !== "playing") return;
+
       const winnerParticipantId = data?.winnerParticipantId;
 
       const isWinner = winnerParticipantId
         ? winnerParticipantId === myParticipant.participantId
-        : myParticipant.progressPercent >= 100;
+        : myParticipant.life > 0 &&
+          myParticipant.status !== "eliminated" &&
+          myParticipant.progressPercent >= 100;
 
+      gameResultRef.current = isWinner ? "winner" : "gameOver";
+      onHoldGameView();
       setGameResult(isWinner ? "winner" : "gameOver");
 
-      moveToGameLobby();
+      moveToSpectate();
     };
 
     socket.on(BATTLE_SOCKET_EVENTS.ELIMINATED, handleEliminated);
@@ -104,7 +177,7 @@ const GamePage = () => {
       socket.off(BATTLE_SOCKET_EVENTS.ELIMINATED, handleEliminated);
       socket.off(BATTLE_SOCKET_EVENTS.FINISHED, handleFinished);
     };
-  }, [socket, myParticipant, navigate]);
+  }, [socket, myParticipant, onHoldGameView, onMoveToSpectate]);
 
   const handleInputChange = (
     inputText: string,
@@ -155,25 +228,11 @@ const GamePage = () => {
   };
 
   if (gameResult === "gameOver") {
-    return (
-      <div className="bg-surface-main flex h-dvh w-full items-center justify-center">
-        <div className="rounded-2xl bg-white px-16 py-12 text-center shadow-lg">
-          <h1 className="text-4xl font-bold text-red-500">Game Over</h1>
-          <p className="mt-4 text-lg text-gray-500">잠시 후 이동합니다...</p>
-        </div>
-      </div>
-    );
+    return <ResultModal result="gameOver" />;
   }
 
   if (gameResult === "winner") {
-    return (
-      <div className="bg-surface-main flex h-dvh w-full items-center justify-center">
-        <div className="rounded-2xl bg-white px-16 py-12 text-center shadow-lg">
-          <h1 className="text-4xl font-bold text-state-active">Victory!</h1>
-          <p className="mt-4 text-lg text-gray-500">대기방으로 이동합니다...</p>
-        </div>
-      </div>
-    );
+    return <ResultModal result="winner" />;
   }
 
   return (

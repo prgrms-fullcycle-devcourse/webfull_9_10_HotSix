@@ -1,42 +1,44 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { joinMatch } from "@/api/match.api";
 import settingIcon from "@/assets/icons/settingIcon.svg";
 import BgImage from "@/assets/images/racing_night.svg";
-import PixelButton from "@/components/common/PixelButton";
 import SideBar from "@/components/common/Sidebar/SideBar";
 import ParticipantCard from "@/components/spectator/ParticipantCard";
-import { PATH } from "@/constants/route";
-import { useGameData, useGameDetail, useLatestGameResult } from "@/hooks/useGame";
+import { useGameDetail, useLatestGameResult } from "@/hooks/useGame";
 import { createBattleSocket } from "@/lib/socket/battleSocket";
 import { registerConnectionHandlers } from "@/lib/socket/handlers/connection.handler";
 import { registerGameHandlers } from "@/lib/socket/handlers/game.handler";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useGameStore } from "@/stores/useGameStore";
 import { useSocketStore } from "@/stores/useSocketStore";
 
-const SpectatePage = () => {
-  const navigate = useNavigate();
+type SpectatePageProps = {
+  onMoveToLobby: () => void;
+  onOpenSettings: () => void;
+};
 
-  useGameData();
-
+const SpectatePage = ({ onMoveToLobby, onOpenSettings }: SpectatePageProps) => {
   const participants = useGameStore((s) => s.participants);
   const prompt = useGameStore((s) => s.prompt);
   const phase = useGameStore((s) => s.phase);
+  const nextWaitingStartsAt = useGameStore((s) => s.nextWaitingStartsAt);
+  const currentUser = useAuthStore((s) => s.user);
   const socket = useSocketStore((s) => s.socket);
-  const [isJoiningNextGame, setIsJoiningNextGame] = useState(false);
+  const [nextGameRemainingSeconds, setNextGameRemainingSeconds] = useState(0);
   const hasJoinedNextGameRef = useRef(false);
   const shouldShowResult = phase === "finished";
   const { data: latestResult, isLoading: isResultLoading } = useLatestGameResult(shouldShowResult);
   const { data: polledGame } = useGameDetail({
-    enabled: isJoiningNextGame,
-    refetchInterval: isJoiningNextGame ? 1000 : false,
+    enabled: shouldShowResult,
+    refetchInterval: shouldShowResult ? 1000 : false,
   });
 
   const rankings = latestResult?.rankings ?? [];
 
   useEffect(() => {
-    if (!isJoiningNextGame || hasJoinedNextGameRef.current) return;
-    if (polledGame?.game.phase !== "waiting") return;
+    if (hasJoinedNextGameRef.current) return;
+    if (!shouldShowResult && phase !== "waiting") return;
+    if (polledGame?.game.phase !== "waiting" && phase !== "waiting") return;
 
     hasJoinedNextGameRef.current = true;
 
@@ -45,6 +47,15 @@ const SpectatePage = () => {
       useSocketStore.getState().disconnect();
       useGameStore.getState().resetForWaiting();
 
+      if (currentUser) {
+        useGameStore.getState().upsertWaitingPlayer({
+          avatarUrl: currentUser.avatarUrl,
+          joinedAt: new Date().toISOString(),
+          nickname: currentUser.nickname,
+          userId: currentUser.id,
+        });
+      }
+
       const { socketAuthToken } = await joinMatch();
       const nextSocket = createBattleSocket(socketAuthToken);
 
@@ -52,15 +63,37 @@ const SpectatePage = () => {
       registerConnectionHandlers(nextSocket);
       registerGameHandlers(nextSocket);
 
-      navigate(PATH.GAME_LOBBY);
+      onMoveToLobby();
     };
 
     void joinNextGame();
-  }, [isJoiningNextGame, navigate, polledGame?.game.phase, socket]);
+  }, [currentUser, onMoveToLobby, phase, polledGame?.game.phase, shouldShowResult, socket]);
 
-  const handleJoinNextGame = () => {
-    setIsJoiningNextGame(true);
-  };
+  useEffect(() => {
+    if (!shouldShowResult) {
+      setNextGameRemainingSeconds(0);
+      return;
+    }
+
+    const updateRemainingSeconds = () => {
+      if (!nextWaitingStartsAt) {
+        setNextGameRemainingSeconds(0);
+        return;
+      }
+
+      const remainingMilliseconds = new Date(nextWaitingStartsAt).getTime() - Date.now();
+      setNextGameRemainingSeconds(Math.max(0, Math.ceil(remainingMilliseconds / 1000)));
+    };
+
+    updateRemainingSeconds();
+    const timer = window.setInterval(updateRemainingSeconds, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [nextWaitingStartsAt, shouldShowResult]);
+
+  const nextGameRemainingTime = formatTime(nextGameRemainingSeconds);
 
   return (
     <div
@@ -120,7 +153,7 @@ const SpectatePage = () => {
       {/* 설정 */}
       <button
         type="button"
-        onClick={() => navigate(PATH.SETTING)}
+        onClick={onOpenSettings}
         className="absolute right-5 top-5 h-10 w-10 flex items-center justify-center hover:translate-x-[1px] hover:translate-y-[1px]"
       >
         <img src={settingIcon} alt="설정" />
@@ -168,10 +201,9 @@ const SpectatePage = () => {
               )}
             </div>
 
-            <div className="flex justify-center">
-              <PixelButton type="button" disabled={isJoiningNextGame} onClick={handleJoinNextGame}>
-                {isJoiningNextGame ? "다음 게임 준비 중..." : "다음 게임 참여하기"}
-              </PixelButton>
+            <div className="border-4 border-black bg-surface-sub px-4 py-4 text-center shadow-[inset_-4px_-4px_0_rgba(255,255,255,0.5),inset_4px_4px_0_rgba(0,0,0,0.1)]">
+              <p className="text-xs font-bold text-text/70">다음 게임까지</p>
+              <p className="mt-2 text-3xl font-bold text-point-yellow">{nextGameRemainingTime}</p>
             </div>
           </section>
         </div>
@@ -181,3 +213,11 @@ const SpectatePage = () => {
 };
 
 export default SpectatePage;
+
+const formatTime = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainSeconds = safeSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(remainSeconds).padStart(2, "0")}`;
+};

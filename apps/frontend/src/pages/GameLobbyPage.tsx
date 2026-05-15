@@ -1,46 +1,43 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import settingIcon from "@/assets/icons/settingIcon.svg";
 import SideBar from "@/components/common/Sidebar/SideBar";
 import { GameProgress } from "@/components/game/GameProgress";
 import PracticeBox from "@/components/game/PracticeBox";
-import { PATH } from "@/constants/route";
-import { useGameData } from "@/hooks/useGame";
 import { useGameStore } from "@/stores/useGameStore";
 
-const GameLobbyPage = () => {
-  const navigate = useNavigate();
+type GameLobbyPageProps = {
+  onOpenSettings: () => void;
+};
 
-  useGameData();
+const formatTime = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainSeconds = safeSeconds % 60;
 
+  return `${String(minutes).padStart(2, "0")}:${String(remainSeconds).padStart(2, "0")}`;
+};
+
+const GameLobbyPage = ({ onOpenSettings }: GameLobbyPageProps) => {
   const phase = useGameStore((state) => state.phase);
+  const waitingPlayers = useGameStore((state) => state.waitingPlayers);
   const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
   const minPlayers = useGameStore((state) => state.minPlayers);
   const countdown = useGameStore((state) => state.countdown);
   const previousWinner = useGameStore((state) => state.previousWinner);
   const previousGameDuration = useGameStore((state) => state.previousGameDuration);
 
-  const playerCount = waitingPlayerCount;
+  const playerCount = waitingPlayers.length || waitingPlayerCount;
   const winnerText = previousWinner || "-";
   const durationText = previousGameDuration || "00:00";
 
   const isCountdown =
     phase === "countdown" || (playerCount >= minPlayers && countdown > 0 && countdown <= 10);
-  useEffect(() => {
-    if (phase === "in_progress") {
-      navigate(PATH.GAME);
-    }
-
-    if (phase === "finished") {
-      navigate(PATH.SPECTATE);
-    }
-  }, [phase, navigate]);
+  const remainingTimeText = formatTime(countdown);
 
   return (
     <div className="relative flex h-dvh w-full overflow-hidden">
       <button
         type="button"
-        onClick={() => navigate(PATH.SETTING)}
+        onClick={onOpenSettings}
         className="absolute right-[72px] top-[30px] z-50 flex h-[47px] w-[47px] items-center justify-center"
         aria-label="설정"
       >
@@ -59,10 +56,10 @@ const GameLobbyPage = () => {
                 <div className="flex h-[87px] w-full max-w-[900px] items-center justify-center text-center text-[clamp(28px,3vw,44px)] font-bold text-text drop-shadow-[3px_3px_0px_#000]">
                   {isCountdown ? (
                     <>
-                      게임 시작까지 <span className="text-yellow-400">{countdown}초</span>
+                      게임 시작까지 <span className="text-yellow-400">{remainingTimeText}</span>
                     </>
                   ) : (
-                    <span className="text-yellow-400">참여자를 기다리는 중...</span>
+                    <span className="text-yellow-400">{remainingTimeText}</span>
                   )}
                 </div>
 
