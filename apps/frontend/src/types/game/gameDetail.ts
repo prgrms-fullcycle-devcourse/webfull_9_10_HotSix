@@ -25,7 +25,7 @@ export interface GameDetailResponse {
     title: string;
     content: string;
     contentLength: number;
-    Language: string;
+    language: string;
   };
 
   participants: {

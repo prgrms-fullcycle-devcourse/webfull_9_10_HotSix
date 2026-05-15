@@ -2,7 +2,12 @@ import { create } from "zustand";
 import type { BattlePhase } from "@/lib/socket/socket.types";
 import type { Participant } from "@/types/game/participant";
 
-const MIN_PLAYERS = 4;
+export interface WaitingPlayer {
+  avatarUrl?: string;
+  joinedAt?: string;
+  nickname: string;
+  userId: string;
+}
 
 type GamePhase = BattlePhase | "countdown";
 
@@ -14,8 +19,11 @@ interface GameState {
   prompt: string;
 
   participants: Participant[];
+  waitingPlayers: WaitingPlayer[];
 
   waitingPlayerCount: number;
+  spectatorCount: number;
+  minPlayers: number;
   countdown: number;
 
   previousWinner: string;
@@ -29,7 +37,15 @@ interface GameState {
 
   setParticipants: (participants: Participant[]) => void;
 
-  setWaitingState: (data: { playerCount: number; remainingSeconds: number }) => void;
+  setWaitingState: (data: {
+    minPlayers?: number;
+    playerCount: number;
+    remainingSeconds: number;
+    spectatorCount?: number;
+    waitingPlayers?: WaitingPlayer[];
+  }) => void;
+
+  setGameCounts: (data: { minPlayers?: number; spectatorCount?: number }) => void;
 
   setGameState: (data: {
     waitingPlayerCount: number;
@@ -40,6 +56,12 @@ interface GameState {
   updateParticipant: (data: Partial<Participant>) => void;
 
   eliminateParticipant: (participantId: string) => void;
+
+  startGame: (data: { gameId: string; prompt?: string; participants?: Participant[] }) => void;
+
+  finishGame: () => void;
+
+  resetForWaiting: () => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -50,8 +72,11 @@ export const useGameStore = create<GameState>((set) => ({
   prompt: "",
 
   participants: [],
+  waitingPlayers: [],
 
   waitingPlayerCount: 0,
+  spectatorCount: 0,
+  minPlayers: 4,
   countdown: 0,
 
   previousWinner: "-",
@@ -65,7 +90,13 @@ export const useGameStore = create<GameState>((set) => ({
 
   setParticipants: (participants) => set({ participants }),
 
-  setWaitingState: ({ playerCount, remainingSeconds }) =>
+  setWaitingState: ({
+    minPlayers,
+    playerCount,
+    remainingSeconds,
+    spectatorCount,
+    waitingPlayers,
+  }) =>
     set((state) => {
       const isAlreadyInGame = state.phase === "in_progress" || state.phase === "finished";
 
@@ -73,15 +104,25 @@ export const useGameStore = create<GameState>((set) => ({
         return state;
       }
 
+      const nextMinPlayers = minPlayers ?? state.minPlayers;
       const nextPhase: GamePhase =
-        playerCount < MIN_PLAYERS || remainingSeconds > 10 ? "waiting" : "countdown";
+        playerCount < nextMinPlayers || remainingSeconds > 10 ? "waiting" : "countdown";
 
       return {
         waitingPlayerCount: playerCount,
+        minPlayers: nextMinPlayers,
+        spectatorCount: spectatorCount ?? state.spectatorCount,
+        waitingPlayers: waitingPlayers ?? state.waitingPlayers,
         countdown: remainingSeconds,
         phase: nextPhase,
       };
     }),
+
+  setGameCounts: ({ minPlayers, spectatorCount }) =>
+    set((state) => ({
+      minPlayers: minPlayers ?? state.minPlayers,
+      spectatorCount: spectatorCount ?? state.spectatorCount,
+    })),
 
   setGameState: ({ waitingPlayerCount, previousWinner, previousGameDuration }) =>
     set({
@@ -142,4 +183,35 @@ export const useGameStore = create<GameState>((set) => ({
           : participant,
       ),
     })),
+
+  startGame: ({ gameId, prompt, participants }) =>
+    set((state) => ({
+      gameId,
+      phase: "in_progress",
+      prompt: prompt ?? state.prompt,
+      participants: participants ?? state.participants,
+      waitingPlayers: [],
+      waitingPlayerCount: 0,
+      countdown: 0,
+    })),
+
+  finishGame: () =>
+    set({
+      phase: "finished",
+      waitingPlayers: [],
+      waitingPlayerCount: 0,
+      countdown: 0,
+    }),
+
+  resetForWaiting: () =>
+    set({
+      gameId: null,
+      phase: "waiting",
+      prompt: "",
+      participants: [],
+      waitingPlayers: [],
+      waitingPlayerCount: 0,
+      spectatorCount: 0,
+      countdown: 0,
+    }),
 }));

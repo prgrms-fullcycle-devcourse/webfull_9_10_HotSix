@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { getGameDetail, getScoreBoard } from "@/api/game.api";
+import { getGameDetail, getLatestGameResult, getScoreBoard } from "@/api/game.api";
 import { useGameStore } from "@/stores/useGameStore";
 import type { Participant } from "@/types/game/participant";
 
-export const useGameDetail = () => {
+export const useGameDetail = (
+  options: { enabled?: boolean; refetchInterval?: false | number } = {},
+) => {
   return useQuery({
     queryKey: ["gameDetail"],
     queryFn: getGameDetail,
     retry: false,
+    ...options,
   });
 };
 
@@ -20,18 +23,52 @@ export const useScoreboard = () => {
   });
 };
 
+export const useLatestGameResult = (enabled = true) => {
+  return useQuery({
+    queryKey: ["latestGameResult"],
+    queryFn: getLatestGameResult,
+    enabled,
+    retry: false,
+  });
+};
+
 export const useGameData = () => {
   const { data: game } = useGameDetail();
   const { data: scoreboard } = useScoreboard();
 
-  const { setParticipants, setPrompt } = useGameStore();
+  const { setGameCounts, setParticipants, setPrompt, setPhase, setWaitingState } = useGameStore();
 
   useEffect(() => {
     if (!game) return;
-    if (useGameStore.getState().participants.length > 0) return;
 
     if (game.prompt?.content) {
       setPrompt(game.prompt.content);
+    }
+
+    setPhase(game.game.phase);
+    setGameCounts({
+      minPlayers: game.game.minPlayers,
+      spectatorCount: game.game.spectatorCount,
+    });
+
+    if (game.game.phase === "waiting") {
+      const waitingPlayers = (game.participants ?? [])
+        .filter((participant) => participant.role === "player")
+        .map((participant) => ({
+          userId: participant.userId,
+          nickname: participant.nickname,
+          avatarUrl: participant.avatarUrl,
+          joinedAt: participant.joinedAt,
+        }));
+
+      setWaitingState({
+        playerCount: game.game.playerCount,
+        remainingSeconds: game.remainingSeconds ?? 0,
+        minPlayers: game.game.minPlayers,
+        spectatorCount: game.game.spectatorCount,
+        waitingPlayers,
+      });
+      return;
     }
 
     const scoreboardMap = new Map(scoreboard?.map((score) => [score.userId, score]) ?? []);
@@ -40,9 +77,11 @@ export const useGameData = () => {
 
     const participants = game.participants ?? [];
 
-    const playingParticipants = hasScoreboard
-      ? participants.filter((participant) => scoreboardMap.has(participant.userId))
-      : participants;
+    const playingParticipants = (
+      hasScoreboard
+        ? participants.filter((participant) => scoreboardMap.has(participant.userId))
+        : participants
+    ).filter((participant) => participant.role === "player");
 
     const mapped: Participant[] = playingParticipants.map((p) => {
       const score = scoreboardMap.get(p.userId);
@@ -58,10 +97,10 @@ export const useGameData = () => {
         life,
         rank: score?.rank ?? p.rank ?? 0,
         accuracy: score?.accuracy ?? p.accuracy ?? 100,
-        status: life === 0 ? "eliminated" : "playing",
+        status: life === 0 ? "eliminated" : p.status,
       };
     });
 
     setParticipants(mapped);
-  }, [game, scoreboard, setParticipants, setPrompt]);
+  }, [game, scoreboard, setGameCounts, setParticipants, setPhase, setPrompt, setWaitingState]);
 };

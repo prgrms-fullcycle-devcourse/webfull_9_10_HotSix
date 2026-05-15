@@ -27,12 +27,22 @@ export type BattleParticipant = {
 
 export type BattleWaitingPayload = {
   gameId?: string;
+  phase?: "waiting";
 
+  minPlayers?: number;
   playerCount?: number;
   waitingPlayerCount?: number;
+  spectatorCount?: number;
 
   remainingSeconds?: number;
   countdown?: number;
+  waitingEndsAt?: string;
+  waitingPlayers?: {
+    avatarUrl?: string;
+    joinedAt?: string;
+    nickname: string;
+    userId: string;
+  }[];
 };
 
 export type BattleStateLike = {
@@ -48,6 +58,8 @@ export type BattleStateLike = {
 
   waitingPlayerCount?: number;
   playerCount?: number;
+  minPlayers?: number;
+  spectatorCount?: number;
 
   remainingSeconds?: number;
   countdown?: number;

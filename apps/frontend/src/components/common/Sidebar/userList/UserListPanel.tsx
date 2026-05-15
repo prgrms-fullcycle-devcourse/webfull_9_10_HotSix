@@ -91,6 +91,7 @@ const TabItem = ({
 
 const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
   const participants = useGameStore((state) => state.participants);
+  const waitingPlayers = useGameStore((state) => state.waitingPlayers);
 
   const currentUserId = useAuthStore((state) => {
     const authState = state as unknown as {
@@ -102,44 +103,28 @@ const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
     return authState.user?.id ?? authState.userId ?? authState.me?.id;
   });
 
-  const currentUserNickname = useAuthStore((state) => {
-    const authState = state as unknown as {
-      user?: { nickname?: string };
-      nickname?: string;
-      me?: { nickname?: string };
-    };
-
-    return authState.user?.nickname ?? authState.nickname ?? authState.me?.nickname ?? "나";
-  });
-
   const storePlayers: Player[] = useMemo(() => {
-    const mappedPlayers = participants.map((participant) => ({
+    return participants.map((participant) => ({
       id: participant.participantId,
       nickname: participant.nickname || "플레이어",
       progress: participant.progressPercent ?? 0,
       life: participant.life ?? 3,
     }));
+  }, [participants]);
 
-    if (mappedPlayers.length > 0) {
-      return mappedPlayers;
-    }
-
-    if (!currentUserId) {
-      return [];
-    }
-
-    return [
-      {
-        id: currentUserId,
-        nickname: currentUserNickname,
+  const storeWaitingPlayers: Player[] = useMemo(
+    () =>
+      waitingPlayers.map((player) => ({
+        id: player.userId,
+        nickname: player.nickname || "플레이어",
         progress: 0,
         life: 3,
-      },
-    ];
-  }, [participants, currentUserId, currentUserNickname]);
+      })),
+    [waitingPlayers],
+  );
 
   const displayPlayers = players ?? storePlayers;
-  const displayWaiting = waiting ?? (mode === "game" ? [] : storePlayers);
+  const displayWaiting = waiting ?? (mode === "game" ? [] : storeWaitingPlayers);
 
   type TabType = "players" | "waiting";
 

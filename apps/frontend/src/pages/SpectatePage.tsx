@@ -1,14 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { joinMatch } from "@/api/match.api";
 import settingIcon from "@/assets/icons/settingIcon.svg";
 import BgImage from "@/assets/images/racing_night.svg";
+import PixelButton from "@/components/common/PixelButton";
 import SideBar from "@/components/common/Sidebar/SideBar";
 import ParticipantCard from "@/components/spectator/ParticipantCard";
 import { PATH } from "@/constants/route";
-import { useGameData } from "@/hooks/useGame";
+import { useGameData, useGameDetail, useLatestGameResult } from "@/hooks/useGame";
+import { createBattleSocket } from "@/lib/socket/battleSocket";
+import { registerConnectionHandlers } from "@/lib/socket/handlers/connection.handler";
+import { registerGameHandlers } from "@/lib/socket/handlers/game.handler";
 import { useGameStore } from "@/stores/useGameStore";
-
-const REDIRECT_DELAY = 3;
+import { useSocketStore } from "@/stores/useSocketStore";
 
 const SpectatePage = () => {
   const navigate = useNavigate();
@@ -17,30 +21,46 @@ const SpectatePage = () => {
 
   const participants = useGameStore((s) => s.participants);
   const prompt = useGameStore((s) => s.prompt);
-  // const phase = useGameStore((s) => s.phase);
-  const phase = "finished";
+  const phase = useGameStore((s) => s.phase);
+  const socket = useSocketStore((s) => s.socket);
+  const [isJoiningNextGame, setIsJoiningNextGame] = useState(false);
+  const hasJoinedNextGameRef = useRef(false);
+  const shouldShowResult = phase === "finished";
+  const { data: latestResult, isLoading: isResultLoading } = useLatestGameResult(shouldShowResult);
+  const { data: polledGame } = useGameDetail({
+    enabled: isJoiningNextGame,
+    refetchInterval: isJoiningNextGame ? 1000 : false,
+  });
 
-  const [remaining, setRemaining] = useState<number | null>(null);
+  const rankings = latestResult?.rankings ?? [];
 
-  // 게임 종료 후 대기방 이동
   useEffect(() => {
-    if (phase !== "finished") return;
+    if (!isJoiningNextGame || hasJoinedNextGameRef.current) return;
+    if (polledGame?.game.phase !== "waiting") return;
 
-    let count = REDIRECT_DELAY;
-    setRemaining(count);
+    hasJoinedNextGameRef.current = true;
 
-    const interval = setInterval(() => {
-      count -= 1;
-      setRemaining(count);
+    const joinNextGame = async () => {
+      socket?.disconnect();
+      useSocketStore.getState().disconnect();
+      useGameStore.getState().resetForWaiting();
 
-      if (count <= 0) {
-        clearInterval(interval);
-        navigate(PATH.GAME_LOBBY);
-      }
-    }, 1000);
+      const { socketAuthToken } = await joinMatch();
+      const nextSocket = createBattleSocket(socketAuthToken);
 
-    return () => clearInterval(interval);
-  }, [navigate]);
+      useSocketStore.getState().connect(nextSocket);
+      registerConnectionHandlers(nextSocket);
+      registerGameHandlers(nextSocket);
+
+      navigate(PATH.GAME_LOBBY);
+    };
+
+    void joinNextGame();
+  }, [isJoiningNextGame, navigate, polledGame?.game.phase, socket]);
+
+  const handleJoinNextGame = () => {
+    setIsJoiningNextGame(true);
+  };
 
   return (
     <div
@@ -106,22 +126,54 @@ const SpectatePage = () => {
         <img src={settingIcon} alt="설정" />
       </button>
 
-      {/* 게임 종료 모달 */}
-      {phase === "finished" && remaining !== null && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="border-4 border-black bg-surface-main px-10 py-8 text-center shadow-lg">
-            <p className="font-pixel mb-3 text-2xl font-bold">게임 종료</p>
+      {shouldShowResult && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
+          <section className="w-full max-w-[560px] border-4 border-black bg-surface-main px-6 py-6 shadow-[10px_10px_0_#000]">
+            <h2 className="mb-5 text-center text-3xl font-bold text-text">게임이 끝났습니다</h2>
 
-            <p className="font-pixel text-base text-0">{remaining}초 후 대기방으로 이동합니다...</p>
+            <div className="mb-5 border-4 border-black bg-surface-sub px-4 py-4">
+              {isResultLoading ? (
+                <p className="text-center text-sm text-text/70">결과를 불러오는 중...</p>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center justify-between text-sm">
+                    <span className="text-text/70">우승자</span>
+                    <span className="font-bold text-point-yellow">
+                      {latestResult?.winner || "-"}
+                    </span>
+                  </div>
 
-            <button
-              type="button"
-              onClick={() => navigate(PATH.GAME_LOBBY)}
-              className="font-pixel mt-4 border-2 border-black px-4 py-2 text-sm hover:bg-black hover:text-white"
-            >
-              바로 이동
-            </button>
-          </div>
+                  <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
+                    {rankings.map((ranking, index) => (
+                      <div
+                        key={`${ranking.game_id}-${ranking.user_id}`}
+                        className="grid grid-cols-[40px_1fr_64px_64px] items-center gap-2 border-2 border-black bg-surface-main px-3 py-2 text-xs"
+                      >
+                        <span className="font-bold text-point-yellow">
+                          {ranking.final_rank ?? index + 1}
+                        </span>
+                        <span className="truncate font-bold text-text">
+                          {ranking.users?.nickname ?? "플레이어"}
+                        </span>
+                        <span className="text-right text-text/70">WPM {ranking.wpm ?? 0}</span>
+                        <span className="text-right text-text/70">{ranking.accuracy ?? 0}%</span>
+                      </div>
+                    ))}
+
+                    {!isResultLoading && rankings.length === 0 && (
+                      <p className="text-center text-sm text-text/70">표시할 결과가 없습니다.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              <PixelButton type="button" disabled={isJoiningNextGame} onClick={handleJoinNextGame}>
+                {isJoiningNextGame ? "다음 게임 준비 중..." : "다음 게임 참여하기"}
+              </PixelButton>
+            </div>
+          </section>
         </div>
       )}
     </div>
