@@ -37,7 +37,7 @@ const GameLobbyPage = () => {
   }, [phase, navigate]);
 
   return (
-    <div className="bg-surface-main relative flex h-dvh w-full overflow-hidden">
+    <div className="relative flex h-dvh w-full overflow-hidden">
       <button
         type="button"
         onClick={() => navigate(PATH.SETTING)}
