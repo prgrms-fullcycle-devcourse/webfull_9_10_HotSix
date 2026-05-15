@@ -12,7 +12,7 @@ import type {
   BattleActiveConnection,
   BattleSocketAuthSession,
 } from "../types/battle-socket-session";
-import type { CurrentGameState } from "../types/current-game-state";
+import type { CurrentGameState, CurrentWaitingPlayerSnapshot } from "../types/current-game-state";
 
 const CURRENT_GAME_ID_KEY = "battle:current-game-id";
 const BATTLE_TIMER_LOCK_KEY = "battle:timer-lock";
@@ -123,6 +123,40 @@ export class BattleStateRepository {
     );
   }
 
+  async getWaitingPlayers(gameId: string) {
+    const connectionKeys = await this.redisService.instance.keys(
+      `battle:game:${gameId}:active-connection:*`,
+    );
+
+    const waitingPlayers = await Promise.all(
+      connectionKeys.map(async (key): Promise<CurrentWaitingPlayerSnapshot | null> => {
+        const raw = await this.redisService.instance.get(key);
+        if (!raw) return null;
+
+        const connection = JSON.parse(raw) as BattleActiveConnection;
+
+        if (connection.assignedRole !== "player") {
+          return null;
+        }
+
+        const profile = await this.redisService.instance.hgetall(
+          `lobby:player:${connection.participantId}`,
+        );
+
+        return {
+          ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+          ...(profile.joinedAt ? { joinedAt: profile.joinedAt } : {}),
+          nickname: profile.nickname || "플레이어",
+          userId: connection.participantId,
+        };
+      }),
+    );
+
+    return waitingPlayers
+      .filter((player): player is CurrentWaitingPlayerSnapshot => player !== null)
+      .sort((left, right) => this.compareNullableDate(left.joinedAt, right.joinedAt));
+  }
+
   async saveParticipantState(participantState: BattleParticipantState) {
     await this.redisService.instance.set(
       `battle:game:${participantState.gameId}:participant:${participantState.participantId}`,
@@ -145,7 +179,7 @@ export class BattleStateRepository {
   }
 
   async resetPlayerStatus(gameId: string) {
-    if (!gameId) return;
+    if (!gameId) return [];
 
     await this.redisService.instance.del(`battle:game:${gameId}:scoreboard`);
 
@@ -153,26 +187,32 @@ export class BattleStateRepository {
       `battle:game:${gameId}:active-connection:*`,
     );
 
-    await Promise.all(
-      conenctionKey.map(async (key) => {
+    const participants = await Promise.all(
+      conenctionKey.map(async (key): Promise<BattleParticipantState | null> => {
         const raw = await this.redisService.instance.get(key);
-        if (!raw) return;
+        if (!raw) return null;
 
         const connection = JSON.parse(raw) as BattleActiveConnection;
 
         if (connection.assignedRole !== "player") {
-          return;
+          return null;
         }
 
+        const profile = await this.redisService.instance.hgetall(
+          `lobby:player:${connection.participantId}`,
+        );
         const nextState: BattleParticipantState = {
           acceptedLength: 0,
           accuracy: 100,
+          ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
           eliminatedAt: null,
           finishedAt: null,
           gameId,
+          ...(profile.joinedAt ? { joinedAt: profile.joinedAt } : {}),
           lastInputAt: null,
           lastPenaltyIndex: null,
           life: 3,
+          ...(profile.nickname ? { nickname: profile.nickname } : {}),
           participantId: connection.participantId,
           progressPercent: 0,
           role: "player",
@@ -188,7 +228,13 @@ export class BattleStateRepository {
           0,
           connection.participantId,
         );
+
+        return nextState;
       }),
+    );
+
+    return participants.filter(
+      (participant): participant is BattleParticipantState => participant !== null,
     );
   }
 
@@ -251,5 +297,19 @@ export class BattleStateRepository {
       participantState.acceptedLength,
       participantState.participantId,
     );
+  }
+
+  private compareNullableDate(left?: string, right?: string) {
+    return this.getTimestamp(left) - this.getTimestamp(right);
+  }
+
+  private getTimestamp(value?: string) {
+    if (!value) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    const timestamp = new Date(value).getTime();
+
+    return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
   }
 }

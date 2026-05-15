@@ -29,7 +29,7 @@ function createGameState(overrides: Partial<CurrentGameState> = {}): CurrentGame
     gameId: "game-1",
     gameStartedAt: null,
     hasTenSecondNoticeSent: false,
-    minPlayers: 4,
+    minPlayers: 1,
     phase: "waiting",
     playerCount: 1,
     prompt,
@@ -287,6 +287,60 @@ describe("BattleService socket payloads", () => {
     );
 
     expect(payload.prompt).toEqual(prompt);
+  });
+
+  it("includes participant names in game state payloads", () => {
+    const service = new BattleService(
+      {} as BattleStateRepository,
+      {} as PromptRepository,
+      createUsersServiceMock(),
+      createBattleResultRepositoryMock(),
+    );
+
+    const payload = service.buildStatePayload(
+      createGameState({
+        participants: [
+          {
+            acceptedLength: 0,
+            accuracy: 100,
+            joinedAt: "2026-05-06T00:00:30.000Z",
+            lastInputAt: null,
+            life: 3,
+            nickname: "Jay",
+            participantId: "user-1",
+            progressPercent: 0,
+            role: "player",
+            socketId: "socket-1",
+            status: "playing",
+            typoCount: 0,
+            wpm: 0,
+          },
+          {
+            acceptedLength: 0,
+            accuracy: 100,
+            joinedAt: "2026-05-06T00:00:45.000Z",
+            lastInputAt: null,
+            life: 3,
+            nickname: "Lee",
+            participantId: "user-2",
+            progressPercent: 0,
+            role: "player",
+            socketId: "socket-2",
+            status: "playing",
+            typoCount: 0,
+            wpm: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(payload.participantNames).toEqual(["Jay", "Lee"]);
+    expect(payload.participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ nickname: "Jay", participantId: "user-1" }),
+        expect.objectContaining({ nickname: "Lee", participantId: "user-2" }),
+      ]),
+    );
   });
 
   it("does not decrement the next game when an old socket disconnects late", async () => {

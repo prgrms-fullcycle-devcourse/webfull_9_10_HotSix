@@ -30,7 +30,7 @@ function createGameState(overrides: Partial<CurrentGameState> = {}): CurrentGame
     gameId: "game-1",
     gameStartedAt: "2026-05-06T00:01:00.000Z",
     hasTenSecondNoticeSent: false,
-    minPlayers: 4,
+    minPlayers: 1,
     phase: "in_progress",
     playerCount: 1,
     prompt,
@@ -188,7 +188,7 @@ describe("BattleService input validation", () => {
     );
   });
 
-  it("does not apply the same typo penalty twice", async () => {
+  it("applies repeated typo penalties at the same position", async () => {
     const { saveParticipantState, service } = createService({
       participantState: createParticipantState({
         lastPenaltyIndex: 2,
@@ -207,12 +207,12 @@ describe("BattleService input validation", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("Expected accepted input");
-    expect(result.data.life).toBe(2);
+    expect(result.data.life).toBe(1);
     expect(saveParticipantState).toHaveBeenCalledWith(
       expect.objectContaining({
         lastPenaltyIndex: 2,
-        life: 2,
-        typoCount: 1,
+        life: 1,
+        typoCount: 2,
       }),
     );
   });
@@ -386,6 +386,11 @@ describe("BattleService game finish rules", () => {
         nextWaitingStartsAt: expect.any(String),
       }),
     );
+    const savedGameState = (repository.saveCurrentGameState as jest.Mock).mock.calls[0][0];
+    expect(
+      new Date(savedGameState.nextWaitingStartsAt).getTime() -
+        new Date(savedGameState.gameEndedAt).getTime(),
+    ).toBe(15_000);
     expect(repository.saveGameResult).toHaveBeenCalledWith(
       expect.objectContaining({
         reason: "completed",
@@ -487,7 +492,7 @@ describe("BattleService game finish rules", () => {
     });
   });
 
-  it("opens a new waiting game only after the 30 second finished delay", async () => {
+  it("opens a new waiting game only after the 15 second finished delay", async () => {
     const finishedGameState = createGameState({
       gameEndedAt: "2026-05-06T00:16:00.000Z",
       nextWaitingStartsAt: new Date(Date.now() - 1000).toISOString(),
@@ -653,6 +658,13 @@ describe("BattleService socket auth and connection dedupe", () => {
           socketId: "old-socket",
         }),
         getCurrentGameState: jest.fn().mockResolvedValue(currentGameState),
+        getWaitingPlayers: jest.fn().mockResolvedValue([
+          {
+            joinedAt: "2026-05-06T00:00:00.000Z",
+            nickname: "Jay",
+            userId: "user-1",
+          },
+        ]),
         saveActiveConnection,
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
@@ -668,7 +680,25 @@ describe("BattleService socket auth and connection dedupe", () => {
 
     expect(result.assignedRole).toBe("player");
     expect(result.state.playerCount).toBe(1);
-    expect(saveCurrentGameState).not.toHaveBeenCalled();
+    expect(result.waiting?.waitingPlayers).toEqual([
+      {
+        joinedAt: "2026-05-06T00:00:00.000Z",
+        nickname: "Jay",
+        userId: "user-1",
+      },
+    ]);
+    expect(saveCurrentGameState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerCount: 1,
+        waitingPlayers: [
+          {
+            joinedAt: "2026-05-06T00:00:00.000Z",
+            nickname: "Jay",
+            userId: "user-1",
+          },
+        ],
+      }),
+    );
     expect(saveActiveConnection).toHaveBeenCalledWith({
       assignedRole: "player",
       gameId: "game-1",

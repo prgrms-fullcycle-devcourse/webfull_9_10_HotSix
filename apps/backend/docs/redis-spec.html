@@ -294,7 +294,7 @@
     "language": "ko"
   },
   "phase": "waiting",
-  "minPlayers": 4,
+  "minPlayers": 1,
   "playerCount": 2,
   "spectatorCount": 0,
   "waitingStartedAt": "2026-05-04T12:00:00.000Z",
@@ -318,7 +318,7 @@
           <li><code class="inline">battle:current-game-id</code> 와 <code class="inline">battle:game:{gameId}:state</code> 는 항상 같이 사용됩니다.</li>
           <li>대기 타이머는 <code class="inline">battle:timer-lock</code> 을 먼저 획득한 인스턴스만 실행합니다.</li>
           <li>게임 시작 조건은 Redis 상태의 <code class="inline">playerCount &gt;= minPlayers</code> 입니다.</li>
-          <li>대기 시간이 끝났는데 플레이어가 4명 미만이면 같은 <code class="inline">gameId</code> 상태에서 대기 시간만 15분 다시 시작합니다.</li>
+          <li>대기 시간이 끝났는데 플레이어가 1명 미만이면 같은 <code class="inline">gameId</code> 상태에서 대기 시간만 15분 다시 시작합니다.</li>
           <li><code class="inline">prompt.content</code> 전체 문자열은 Redis 원본 상태에는 저장되지만, Socket 응답에서는 phase 와 stage 에 따라 노출 여부가 달라질 수 있습니다.</li>
         </ul>
         <p style="margin-top: 16px;">

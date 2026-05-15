@@ -25,6 +25,7 @@ interface GameState {
   spectatorCount: number;
   minPlayers: number;
   countdown: number;
+  nextWaitingStartsAt: string | null;
 
   previousWinner: string;
   previousGameDuration: string;
@@ -45,7 +46,11 @@ interface GameState {
     waitingPlayers?: WaitingPlayer[];
   }) => void;
 
+  upsertWaitingPlayer: (waitingPlayer: WaitingPlayer) => void;
+
   setGameCounts: (data: { minPlayers?: number; spectatorCount?: number }) => void;
+
+  setNextWaitingStartsAt: (nextWaitingStartsAt: string | null) => void;
 
   setGameState: (data: {
     waitingPlayerCount: number;
@@ -59,7 +64,7 @@ interface GameState {
 
   startGame: (data: { gameId: string; prompt?: string; participants?: Participant[] }) => void;
 
-  finishGame: () => void;
+  finishGame: (data?: { nextWaitingStartsAt?: string | null }) => void;
 
   resetForWaiting: () => void;
 }
@@ -76,8 +81,9 @@ export const useGameStore = create<GameState>((set) => ({
 
   waitingPlayerCount: 0,
   spectatorCount: 0,
-  minPlayers: 4,
+  minPlayers: 1,
   countdown: 0,
+  nextWaitingStartsAt: null,
 
   previousWinner: "-",
   previousGameDuration: "00:00",
@@ -105,16 +111,38 @@ export const useGameStore = create<GameState>((set) => ({
       }
 
       const nextMinPlayers = minPlayers ?? state.minPlayers;
+      const nextWaitingPlayers = waitingPlayers ?? state.waitingPlayers;
+      const nextPlayerCount = waitingPlayers ? waitingPlayers.length : playerCount;
       const nextPhase: GamePhase =
-        playerCount < nextMinPlayers || remainingSeconds > 10 ? "waiting" : "countdown";
+        nextPlayerCount < nextMinPlayers || remainingSeconds > 10 ? "waiting" : "countdown";
 
       return {
-        waitingPlayerCount: playerCount,
+        waitingPlayerCount: nextPlayerCount,
         minPlayers: nextMinPlayers,
         spectatorCount: spectatorCount ?? state.spectatorCount,
-        waitingPlayers: waitingPlayers ?? state.waitingPlayers,
+        waitingPlayers: nextWaitingPlayers,
         countdown: remainingSeconds,
         phase: nextPhase,
+      };
+    }),
+
+  upsertWaitingPlayer: (waitingPlayer) =>
+    set((state) => {
+      const exists = state.waitingPlayers.some((player) => player.userId === waitingPlayer.userId);
+      const waitingPlayers = exists
+        ? state.waitingPlayers.map((player) =>
+            player.userId === waitingPlayer.userId
+              ? {
+                  ...player,
+                  ...waitingPlayer,
+                }
+              : player,
+          )
+        : [...state.waitingPlayers, waitingPlayer];
+
+      return {
+        waitingPlayers,
+        waitingPlayerCount: Math.max(state.waitingPlayerCount, waitingPlayers.length),
       };
     }),
 
@@ -123,6 +151,8 @@ export const useGameStore = create<GameState>((set) => ({
       minPlayers: minPlayers ?? state.minPlayers,
       spectatorCount: spectatorCount ?? state.spectatorCount,
     })),
+
+  setNextWaitingStartsAt: (nextWaitingStartsAt) => set({ nextWaitingStartsAt }),
 
   setGameState: ({ waitingPlayerCount, previousWinner, previousGameDuration }) =>
     set({
@@ -193,14 +223,16 @@ export const useGameStore = create<GameState>((set) => ({
       waitingPlayers: [],
       waitingPlayerCount: 0,
       countdown: 0,
+      nextWaitingStartsAt: null,
     })),
 
-  finishGame: () =>
+  finishGame: (data) =>
     set({
       phase: "finished",
       waitingPlayers: [],
       waitingPlayerCount: 0,
       countdown: 0,
+      nextWaitingStartsAt: data?.nextWaitingStartsAt ?? null,
     }),
 
   resetForWaiting: () =>
@@ -213,5 +245,6 @@ export const useGameStore = create<GameState>((set) => ({
       waitingPlayerCount: 0,
       spectatorCount: 0,
       countdown: 0,
+      nextWaitingStartsAt: null,
     }),
 }));

@@ -15,14 +15,19 @@ import type {
   BattleRankingEntry,
 } from "../types/battle-game-result";
 import type { BattleParticipantState } from "../types/battle-participant-state";
-import type { ConnectionRole, CurrentGameState } from "../types/current-game-state";
+import type {
+  ConnectionRole,
+  CurrentGameParticipantSnapshot,
+  CurrentGameState,
+} from "../types/current-game-state";
 
 // const WAITING_DURATION_SECONDS = 15 * 60;
 const WAITING_DURATION_SECONDS = 30;
 const GAME_DURATION_SECONDS = 15 * 60;
-const FINISHED_DURATION_SECONDS = 30;
+const FINISHED_DURATION_SECONDS = 15;
 const FINISH_LOCK_TTL_SECONDS = FINISHED_DURATION_SECONDS + 10;
 const DEFAULT_PLAYER_LIFE = 3;
+const MIN_PLAYERS_TO_START = 1;
 
 type BattleInputValidationInput = {
   assignedRole?: ConnectionRole | undefined;
@@ -91,7 +96,7 @@ export class BattleService {
     const currentGameState = await this.battleStateRepository.getCurrentGameState();
 
     if (currentGameState) {
-      return currentGameState;
+      return this.normalizeCurrentGameState(currentGameState);
     }
 
     const waitingGameState = await this.createWaitingGameState(new Date());
@@ -148,12 +153,13 @@ export class BattleService {
   }
 
   buildStatePayload(currentGameState: CurrentGameState) {
-    console.log("[STATE PAYLOAD]", {
-      minPlayers: currentGameState.minPlayers,
-      playerCount: currentGameState.playerCount,
-      phase: currentGameState.phase,
-      waitingEndsAt: currentGameState.waitingEndsAt,
-    });
+    const participants = currentGameState.participants ?? [];
+    const waitingPlayers = currentGameState.waitingPlayers;
+    const playerCount =
+      currentGameState.phase === "waiting" && waitingPlayers
+        ? waitingPlayers.length
+        : currentGameState.playerCount;
+
     return {
       gameId: currentGameState.gameId,
       prompt:
@@ -166,7 +172,9 @@ export class BattleService {
           : currentGameState.prompt,
       phase: currentGameState.phase,
       minPlayers: currentGameState.minPlayers,
-      playerCount: currentGameState.playerCount,
+      playerCount,
+      participantNames: this.getParticipantNames(participants),
+      participants,
       spectatorCount: currentGameState.spectatorCount,
       waitingEndsAt: currentGameState.waitingEndsAt,
       gameStartedAt: currentGameState.gameStartedAt,
@@ -174,6 +182,9 @@ export class BattleService {
       finishReason: currentGameState.finishReason ?? null,
       nextWaitingStartsAt: currentGameState.nextWaitingStartsAt ?? null,
       rankings: currentGameState.rankings ?? [],
+      ...(currentGameState.phase === "waiting"
+        ? { waitingPlayers: currentGameState.waitingPlayers ?? [] }
+        : {}),
       winnerParticipantId: currentGameState.winnerParticipantId ?? null,
     };
   }
@@ -190,6 +201,9 @@ export class BattleService {
   }
 
   buildWaitingPayload(currentGameState: CurrentGameState) {
+    const waitingPlayers = currentGameState.waitingPlayers;
+    const playerCount = waitingPlayers ? waitingPlayers.length : currentGameState.playerCount;
+
     return {
       gameId: currentGameState.gameId,
       phase: currentGameState.phase,
@@ -201,8 +215,9 @@ export class BattleService {
       remainingSeconds: this.getWaitingRemainingSeconds(currentGameState),
       waitingEndsAt: currentGameState.waitingEndsAt,
       minPlayers: currentGameState.minPlayers,
-      playerCount: currentGameState.playerCount,
+      playerCount,
       spectatorCount: currentGameState.spectatorCount,
+      waitingPlayers: waitingPlayers ?? [],
     };
   }
 
@@ -220,24 +235,30 @@ export class BattleService {
       };
 
       await this.battleStateRepository.saveActiveConnection(refreshedConnection);
+      const refreshedGameState =
+        currentGameState.phase === "waiting"
+          ? await this.syncWaitingPlayers(currentGameState)
+          : currentGameState;
 
       return {
         assignedRole: refreshedConnection.assignedRole,
-        state: this.buildStatePayload(currentGameState),
+        state: this.buildStatePayload(refreshedGameState),
         waiting:
-          currentGameState.phase === "waiting" ? this.buildWaitingPayload(currentGameState) : null,
+          refreshedGameState.phase === "waiting"
+            ? this.buildWaitingPayload(refreshedGameState)
+            : null,
       };
     }
 
     const assignedRole: ConnectionRole =
       currentGameState.phase === "waiting" ? "player" : "spectator";
-    const updatedGameState = await this.updateConnectionCount(currentGameState, assignedRole, 1);
     await this.battleStateRepository.saveActiveConnection({
       assignedRole,
-      gameId: updatedGameState.gameId,
+      gameId: currentGameState.gameId,
       participantId: input.participantId,
       socketId: input.socketId,
     });
+    const updatedGameState = await this.updateConnectionCount(currentGameState, assignedRole, 1);
 
     return {
       assignedRole,
@@ -377,34 +398,46 @@ export class BattleService {
       hasTenSecondNoticeSent: false,
       nextWaitingStartsAt: null,
       rankings: [],
+      participants: [],
       updatedAt: startedAt,
       waitingEndsAt: null,
+      waitingPlayers: [],
       waitingStartedAt: null,
       winnerParticipantId: null,
     };
 
     await this.battleStateRepository.saveCurrentGameState(startedGameState);
-    await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
+    const participants = await this.battleStateRepository.resetPlayerStatus(
+      currentGameState.gameId,
+    );
+    const startedGameStateWithParticipants = {
+      ...startedGameState,
+      participants: this.toParticipantSnapshots(participants),
+      updatedAt: new Date().toISOString(),
+    };
 
-    return startedGameState;
+    await this.battleStateRepository.saveCurrentGameState(startedGameStateWithParticipants);
+
+    return startedGameStateWithParticipants;
   }
 
   async restartWaitingCountdown(currentGameState: CurrentGameState) {
     const now = new Date();
     const waitingStartedAt = now.toISOString();
     const waitingEndsAt = new Date(now.getTime() + WAITING_DURATION_SECONDS * 1000).toISOString();
-    const restartedWaitingGameState = {
+    const restartedWaitingGameState = await this.withWaitingPlayers({
       ...currentGameState,
       finishReason: null,
       gameEndedAt: null,
       hasTenSecondNoticeSent: false,
       nextWaitingStartsAt: null,
       rankings: [],
+      participants: [],
       updatedAt: waitingStartedAt,
       waitingEndsAt,
       waitingStartedAt,
       winnerParticipantId: null,
-    };
+    });
 
     await this.battleStateRepository.saveCurrentGameState(restartedWaitingGameState);
     await this.battleStateRepository.resetPlayerStatus(currentGameState.gameId);
@@ -543,17 +576,49 @@ export class BattleService {
       nextWaitingStartsAt: null,
       phase: "waiting" as const,
       playerCount: 0,
-      minPlayers: 4, // default = 4
+      minPlayers: MIN_PLAYERS_TO_START,
       prompt,
       rankings: [],
       spectatorCount: 0,
       updatedAt: waitingStartedAt,
       waitingEndsAt,
+      waitingPlayers: [],
       waitingStartedAt,
       winnerParticipantId: null,
     };
 
     return gameState;
+  }
+
+  private async normalizeCurrentGameState(currentGameState: CurrentGameState) {
+    const normalizedGameState =
+      currentGameState.phase === "waiting"
+        ? await this.withWaitingPlayers(currentGameState)
+        : currentGameState;
+    const hasWaitingPlayerChanges =
+      normalizedGameState.playerCount !== currentGameState.playerCount ||
+      JSON.stringify(normalizedGameState.waitingPlayers ?? []) !==
+        JSON.stringify(currentGameState.waitingPlayers ?? []);
+
+    if (normalizedGameState.minPlayers === MIN_PLAYERS_TO_START) {
+      if (!hasWaitingPlayerChanges) {
+        return currentGameState;
+      }
+
+      await this.battleStateRepository.saveCurrentGameState(normalizedGameState);
+
+      return normalizedGameState;
+    }
+
+    const nextGameState = {
+      ...normalizedGameState,
+      minPlayers: MIN_PLAYERS_TO_START,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.battleStateRepository.saveCurrentGameState(nextGameState);
+
+    return nextGameState;
   }
 
   private applyInputResult(input: {
@@ -569,9 +634,7 @@ export class BattleService {
     socketId: string;
   }) {
     const now = new Date().toISOString();
-    const shouldApplyPenalty =
-      input.comparison.typoIndex !== null &&
-      input.comparison.typoIndex !== input.participantState.lastPenaltyIndex;
+    const shouldApplyPenalty = input.comparison.typoIndex !== null;
     const life = shouldApplyPenalty
       ? Math.max(0, input.participantState.life - 1)
       : input.participantState.life;
@@ -794,6 +857,35 @@ export class BattleService {
     return "playing";
   }
 
+  private toParticipantSnapshots(
+    participants: BattleParticipantState[],
+  ): CurrentGameParticipantSnapshot[] {
+    return participants.map((participant) => ({
+      acceptedLength: participant.acceptedLength,
+      accuracy: participant.accuracy,
+      ...(participant.avatarUrl ? { avatarUrl: participant.avatarUrl } : {}),
+      eliminatedAt: participant.eliminatedAt ?? null,
+      finishedAt: participant.finishedAt ?? null,
+      ...(participant.joinedAt ? { joinedAt: participant.joinedAt } : {}),
+      lastInputAt: participant.lastInputAt,
+      life: participant.life,
+      ...(participant.nickname ? { nickname: participant.nickname } : {}),
+      participantId: participant.participantId,
+      progressPercent: participant.progressPercent,
+      role: participant.role,
+      socketId: participant.socketId,
+      status: participant.status,
+      typoCount: participant.typoCount,
+      wpm: participant.wpm,
+    }));
+  }
+
+  private getParticipantNames(participants: CurrentGameParticipantSnapshot[]) {
+    return participants
+      .map((participant) => participant.nickname)
+      .filter((nickname): nickname is string => Boolean(nickname));
+  }
+
   private compareByFinishedAtAsc(left: BattleParticipantState, right: BattleParticipantState) {
     return (
       this.getTimestamp(left.finishedAt, Number.MAX_SAFE_INTEGER) -
@@ -970,9 +1062,40 @@ export class BattleService {
       spectatorCount,
       updatedAt: new Date().toISOString(),
     };
+    const nextGameState =
+      updatedGameState.phase === "waiting"
+        ? await this.withWaitingPlayers(updatedGameState)
+        : updatedGameState;
 
-    await this.battleStateRepository.saveCurrentGameState(updatedGameState);
+    await this.battleStateRepository.saveCurrentGameState(nextGameState);
 
-    return updatedGameState;
+    return nextGameState;
+  }
+
+  private async syncWaitingPlayers(currentGameState: CurrentGameState) {
+    const nextGameState = await this.withWaitingPlayers({
+      ...currentGameState,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await this.battleStateRepository.saveCurrentGameState(nextGameState);
+
+    return nextGameState;
+  }
+
+  private async withWaitingPlayers(currentGameState: CurrentGameState) {
+    if (currentGameState.phase !== "waiting") {
+      return currentGameState;
+    }
+
+    const waitingPlayers = await this.battleStateRepository.getWaitingPlayers(
+      currentGameState.gameId,
+    );
+
+    return {
+      ...currentGameState,
+      playerCount: waitingPlayers.length,
+      waitingPlayers,
+    };
   }
 }

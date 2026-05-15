@@ -61,6 +61,7 @@ const TypingGame = ({
 
   const visibleLines = lines.slice(lineIndex, lineIndex + 4);
   const currentLine = lines[lineIndex] ?? "";
+  const canMoveNextLine = currentInput === currentLine && lineIndex < lines.length - 1;
   const isGameOver = life <= 0 || lineIndex >= lines.length;
 
   useEffect(() => {
@@ -120,6 +121,10 @@ const TypingGame = ({
   };
 
   const moveNextLine = () => {
+    if (!canMoveNextLine) {
+      return;
+    }
+
     const currentCorrectCount = getCorrectCount(currentInput);
 
     setCompletedTypingCount((prev) => prev + currentInput.length);
@@ -132,11 +137,23 @@ const TypingGame = ({
 
     setCurrentInput("");
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter") {
+      return;
+    }
+
+    e.preventDefault();
+    moveNextLine();
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
 
     if (newValue.includes("\n")) {
-      moveNextLine();
+      if (canMoveNextLine) {
+        moveNextLine();
+      }
 
       return;
     }
@@ -234,6 +251,7 @@ const TypingGame = ({
 
       <textarea
         value={currentInput}
+        onKeyDown={handleKeyDown}
         onChange={handleInputChange}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}

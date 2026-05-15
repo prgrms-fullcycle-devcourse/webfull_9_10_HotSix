@@ -1,7 +1,8 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { refreshUser } from "@/api/auth.api";
-import { PATH } from "@/constants/route";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useGameStore } from "@/stores/useGameStore";
+import { useSocketStore } from "@/stores/useSocketStore";
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
@@ -74,9 +75,9 @@ api.interceptors.response.use(
     } catch (err) {
       refreshPromise = null;
       useAuthStore.getState().clearAuth();
-      if (typeof window !== "undefined" && window.location.pathname !== PATH.ROOT) {
-        window.location.replace(PATH.ROOT);
-      }
+      useSocketStore.getState().socket?.disconnect();
+      useSocketStore.getState().disconnect();
+      useGameStore.getState().resetForWaiting();
       return Promise.reject(err);
     }
   },

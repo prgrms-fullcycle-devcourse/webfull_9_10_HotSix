@@ -1,4 +1,4 @@
-export type Status = "playing" | "finished" | "eliminated" | "spectating";
+export type Status = "waiting" | "playing" | "finished" | "eliminated" | "spectating";
 
 export interface GameDetailResponse {
   game: {
