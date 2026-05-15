@@ -24,6 +24,13 @@ export type CurrentGameParticipantSnapshot = {
   wpm: number;
 };
 
+export type CurrentWaitingPlayerSnapshot = {
+  avatarUrl?: string;
+  joinedAt?: string;
+  nickname: string;
+  userId: string;
+};
+
 export type CurrentGameState = {
   gameId: string;
   phase: GamePhase;
@@ -41,6 +48,7 @@ export type CurrentGameState = {
   spectatorCount: number;
   updatedAt: string;
   waitingEndsAt: null | string;
+  waitingPlayers?: CurrentWaitingPlayerSnapshot[];
   waitingStartedAt: null | string;
   winnerParticipantId?: null | string;
 };

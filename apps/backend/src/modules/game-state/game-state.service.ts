@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from "@nestjs/common";
+import { Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
 import { RedisService } from "../../storage/redis/redis.service";
 // biome-ignore lint/style/useImportType: Nest DI needs a runtime class reference.
@@ -60,8 +55,11 @@ export class GameStateService {
     }
 
     const gameData = JSON.parse(redisData);
-    const players = await this.getCurrentScoreboard();
     const spectators = await this.getCurrentSpectators();
+    const waitingPlayers =
+      gameData?.phase === "waiting" ? await this.getCurrentWaitingPlayers() : [];
+    const players =
+      gameData?.phase === "waiting" ? waitingPlayers : await this.getCurrentScoreboard();
 
     return {
       game: {
@@ -118,6 +116,28 @@ export class GameStateService {
       }));
 
     return spectators;
+  }
+
+  async getCurrentWaitingPlayers() {
+    const players = (await this.matchService.getAllUsers())
+      .filter((p) => p.role === "player")
+      .map((p) => ({
+        userId: p.userId,
+        nickname: p.nickname,
+        avatarUrl: p.avatarUrl,
+        status: "waiting",
+        role: "player" as const,
+        joinedAt: p.joinedAt,
+        progressPercent: 0,
+        rank: 0,
+        wpm: 0,
+        life: 3,
+        accuracy: 100,
+        isEliminated: false,
+        acceptedLength: 0,
+      }));
+
+    return players;
   }
 
   async getCurrentScoreboard() {

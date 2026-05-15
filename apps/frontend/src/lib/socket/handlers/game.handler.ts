@@ -22,6 +22,7 @@ type ParticipantIdentity = {
   participantId: string;
   socketId?: string;
 };
+type ParticipantStatus = Participant["status"];
 
 const upsertCurrentUserAsWaitingPlayer = () => {
   const user = useAuthStore.getState().user;
@@ -51,7 +52,7 @@ const mapParticipant = (participant: BattleParticipant): ParticipantUpdate => ({
   ...(participant.wpm !== undefined ? { wpm: participant.wpm } : {}),
   ...(participant.accuracy !== undefined ? { accuracy: participant.accuracy } : {}),
   ...(participant.life !== undefined ? { life: participant.life } : {}),
-  status: participant.status,
+  status: toParticipantStatus(participant.status),
 });
 
 const mapParticipantIdentity = (participant: ParticipantIdentity): ParticipantUpdate => ({
@@ -69,8 +70,11 @@ const mapParticipantSnapshot = (participant: BattleSocketParticipant): Participa
   wpm: participant.wpm ?? 0,
   accuracy: participant.accuracy ?? 100,
   life: participant.life ?? 3,
-  status: participant.status,
+  status: toParticipantStatus(participant.status),
 });
+
+const toParticipantStatus = (status: BattleParticipant["status"] | "waiting"): ParticipantStatus =>
+  status === "waiting" ? "playing" : status;
 
 export const registerGameHandlers = (socket: Socket) => {
   const store = useGameStore.getState();
@@ -125,8 +129,13 @@ export const registerGameHandlers = (socket: Socket) => {
         ...(stateData.spectatorCount !== undefined
           ? { spectatorCount: stateData.spectatorCount }
           : {}),
+        ...(stateData.waitingPlayers !== undefined
+          ? { waitingPlayers: stateData.waitingPlayers }
+          : {}),
       });
-      upsertCurrentUserAsWaitingPlayer();
+      if ((stateData.waitingPlayers?.length ?? 0) === 0 && playerCount > 0) {
+        upsertCurrentUserAsWaitingPlayer();
+      }
     }
 
     participants.map(mapParticipantIdentity).forEach((p) => {

@@ -25,7 +25,7 @@ const GameLobbyPage = ({ onOpenSettings }: GameLobbyPageProps) => {
   const previousWinner = useGameStore((state) => state.previousWinner);
   const previousGameDuration = useGameStore((state) => state.previousGameDuration);
 
-  const playerCount = waitingPlayers.length || waitingPlayerCount;
+  const playerCount = Math.max(waitingPlayers.length, waitingPlayerCount);
   const winnerText = previousWinner || "-";
   const durationText = previousGameDuration || "00:00";
 

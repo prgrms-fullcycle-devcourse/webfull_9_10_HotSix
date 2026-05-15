@@ -38,6 +38,12 @@ export interface BattleStatePayload {
   participantNames?: string[];
   participants?: BattleSocketParticipant[];
   spectatorCount: number;
+  waitingPlayers?: {
+    avatarUrl?: string;
+    joinedAt?: string;
+    nickname: string;
+    userId: string;
+  }[];
 
   gameStartedAt: string | null;
   gameEndedAt: string | null;

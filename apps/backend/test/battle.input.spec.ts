@@ -658,6 +658,13 @@ describe("BattleService socket auth and connection dedupe", () => {
           socketId: "old-socket",
         }),
         getCurrentGameState: jest.fn().mockResolvedValue(currentGameState),
+        getWaitingPlayers: jest.fn().mockResolvedValue([
+          {
+            joinedAt: "2026-05-06T00:00:00.000Z",
+            nickname: "Jay",
+            userId: "user-1",
+          },
+        ]),
         saveActiveConnection,
         saveCurrentGameState,
       } as unknown as BattleStateRepository,
@@ -673,7 +680,25 @@ describe("BattleService socket auth and connection dedupe", () => {
 
     expect(result.assignedRole).toBe("player");
     expect(result.state.playerCount).toBe(1);
-    expect(saveCurrentGameState).not.toHaveBeenCalled();
+    expect(result.waiting?.waitingPlayers).toEqual([
+      {
+        joinedAt: "2026-05-06T00:00:00.000Z",
+        nickname: "Jay",
+        userId: "user-1",
+      },
+    ]);
+    expect(saveCurrentGameState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerCount: 1,
+        waitingPlayers: [
+          {
+            joinedAt: "2026-05-06T00:00:00.000Z",
+            nickname: "Jay",
+            userId: "user-1",
+          },
+        ],
+      }),
+    );
     expect(saveActiveConnection).toHaveBeenCalledWith({
       assignedRole: "player",
       gameId: "game-1",

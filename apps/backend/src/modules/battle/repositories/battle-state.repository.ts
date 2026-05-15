@@ -12,7 +12,7 @@ import type {
   BattleActiveConnection,
   BattleSocketAuthSession,
 } from "../types/battle-socket-session";
-import type { CurrentGameState } from "../types/current-game-state";
+import type { CurrentGameState, CurrentWaitingPlayerSnapshot } from "../types/current-game-state";
 
 const CURRENT_GAME_ID_KEY = "battle:current-game-id";
 const BATTLE_TIMER_LOCK_KEY = "battle:timer-lock";
@@ -121,6 +121,40 @@ export class BattleStateRepository {
       (participantState): participantState is BattleParticipantState =>
         participantState?.role === "player",
     );
+  }
+
+  async getWaitingPlayers(gameId: string) {
+    const connectionKeys = await this.redisService.instance.keys(
+      `battle:game:${gameId}:active-connection:*`,
+    );
+
+    const waitingPlayers = await Promise.all(
+      connectionKeys.map(async (key): Promise<CurrentWaitingPlayerSnapshot | null> => {
+        const raw = await this.redisService.instance.get(key);
+        if (!raw) return null;
+
+        const connection = JSON.parse(raw) as BattleActiveConnection;
+
+        if (connection.assignedRole !== "player") {
+          return null;
+        }
+
+        const profile = await this.redisService.instance.hgetall(
+          `lobby:player:${connection.participantId}`,
+        );
+
+        return {
+          ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+          ...(profile.joinedAt ? { joinedAt: profile.joinedAt } : {}),
+          nickname: profile.nickname || "플레이어",
+          userId: connection.participantId,
+        };
+      }),
+    );
+
+    return waitingPlayers
+      .filter((player): player is CurrentWaitingPlayerSnapshot => player !== null)
+      .sort((left, right) => this.compareNullableDate(left.joinedAt, right.joinedAt));
   }
 
   async saveParticipantState(participantState: BattleParticipantState) {
@@ -263,5 +297,19 @@ export class BattleStateRepository {
       participantState.acceptedLength,
       participantState.participantId,
     );
+  }
+
+  private compareNullableDate(left?: string, right?: string) {
+    return this.getTimestamp(left) - this.getTimestamp(right);
+  }
+
+  private getTimestamp(value?: string) {
+    if (!value) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    const timestamp = new Date(value).getTime();
+
+    return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
   }
 }

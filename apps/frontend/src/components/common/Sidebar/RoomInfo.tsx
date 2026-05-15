@@ -26,7 +26,7 @@ const RoomInfo = ({ mode }: RoomInfoProps) => {
 
   const aliveCount = participants.filter((p) => p.life > 0).length;
   const deadCount = participants.filter((p) => p.life <= 0).length;
-  const waitingCount = waitingPlayers.length || waitingPlayerCount;
+  const waitingCount = Math.max(waitingPlayers.length, waitingPlayerCount);
 
   const displayStats =
     mode === "spectate" || mode === "game"

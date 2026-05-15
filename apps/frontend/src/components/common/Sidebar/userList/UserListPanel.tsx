@@ -92,6 +92,7 @@ const TabItem = ({
 const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
   const participants = useGameStore((state) => state.participants);
   const waitingPlayers = useGameStore((state) => state.waitingPlayers);
+  const waitingPlayerCount = useGameStore((state) => state.waitingPlayerCount);
 
   const currentUserId = useAuthStore((state) => {
     const authState = state as unknown as {
@@ -125,6 +126,7 @@ const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
 
   const displayPlayers = players ?? storePlayers;
   const displayWaiting = waiting ?? (mode === "game" ? [] : storeWaitingPlayers);
+  const displayWaitingCount = Math.max(displayWaiting.length, waitingPlayerCount);
 
   type TabType = "players" | "waiting";
 
@@ -150,7 +152,7 @@ const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
             <TabItem
               active={currentTab === "waiting"}
               label="대기자"
-              count={displayWaiting.length}
+              count={displayWaitingCount}
               onClick={() => setCurrentTab("waiting")}
             />
           </>
@@ -169,7 +171,7 @@ const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
           <TabItem
             active={currentTab === "waiting"}
             label="대기자"
-            count={displayWaiting.length}
+            count={displayWaitingCount}
             onClick={() => setCurrentTab("waiting")}
           />
         )}
@@ -181,11 +183,7 @@ const UserListPanel = ({ mode, players, waiting }: UserListPanelProps) => {
             {currentTab === "players"
               ? displayPlayers.map((p) => <PlayerCard key={p.id} player={p} />)
               : displayWaiting.map((p) => (
-                  <WaitingCard
-                    key={p.id}
-                    player={p}
-                    isMe={p.id === currentUserId || displayWaiting.length === 1}
-                  />
+                  <WaitingCard key={p.id} player={p} isMe={p.id === currentUserId} />
                 ))}
           </div>
         </div>

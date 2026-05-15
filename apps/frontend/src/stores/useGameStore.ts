@@ -111,14 +111,16 @@ export const useGameStore = create<GameState>((set) => ({
       }
 
       const nextMinPlayers = minPlayers ?? state.minPlayers;
+      const nextWaitingPlayers = waitingPlayers ?? state.waitingPlayers;
+      const nextPlayerCount = waitingPlayers ? waitingPlayers.length : playerCount;
       const nextPhase: GamePhase =
-        playerCount < nextMinPlayers || remainingSeconds > 10 ? "waiting" : "countdown";
+        nextPlayerCount < nextMinPlayers || remainingSeconds > 10 ? "waiting" : "countdown";
 
       return {
-        waitingPlayerCount: playerCount,
+        waitingPlayerCount: nextPlayerCount,
         minPlayers: nextMinPlayers,
         spectatorCount: spectatorCount ?? state.spectatorCount,
-        waitingPlayers: waitingPlayers ?? state.waitingPlayers,
+        waitingPlayers: nextWaitingPlayers,
         countdown: remainingSeconds,
         phase: nextPhase,
       };

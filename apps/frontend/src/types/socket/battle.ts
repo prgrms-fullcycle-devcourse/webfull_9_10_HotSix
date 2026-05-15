@@ -59,6 +59,12 @@ export type BattleStateLike = {
   participants?: BattleParticipant[];
   participantNames?: string[];
   nextWaitingStartsAt?: string | null;
+  waitingPlayers?: {
+    avatarUrl?: string;
+    joinedAt?: string;
+    nickname: string;
+    userId: string;
+  }[];
 
   waitingPlayerCount?: number;
   playerCount?: number;

@@ -87,6 +87,7 @@ export const useGameData = () => {
       const score = scoreboardMap.get(p.userId);
 
       const life = score?.life ?? p.life ?? 3;
+      const status = p.status === "waiting" ? "playing" : p.status;
 
       return {
         participantId: p.userId,
@@ -97,7 +98,7 @@ export const useGameData = () => {
         life,
         rank: score?.rank ?? p.rank ?? 0,
         accuracy: score?.accuracy ?? p.accuracy ?? 100,
-        status: life === 0 ? "eliminated" : p.status,
+        status: life === 0 ? "eliminated" : status,
       };
     });
 
